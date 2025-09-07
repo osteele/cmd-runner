@@ -23,12 +23,40 @@ func HandleCheckCommand(r *CommandRunner) error {
 		}
 	}
 
-	// If no native check command, run lint, typecheck, and test separately
-	fmt.Fprintf(os.Stderr, "Running check (lint, typecheck, test)...\n")
+	// If no native check command, synthesize by running lint, typecheck, and test separately
+	return r.synthesizeCheckCommand()
+}
 
-	// Create runners for each sub-command
+// synthesizeCheckCommand runs lint, typecheck, and test as separate commands
+func (r *CommandRunner) synthesizeCheckCommand() error {
 	commands := []string{"lint", "typecheck", "test"}
+	var foundAny bool
+	var failedCommands []string
+	var hasErrors bool
+
+	// First check which commands are available
 	for _, cmdName := range commands {
+		if r.hasCommand(cmdName) {
+			foundAny = true
+		}
+	}
+
+	if !foundAny {
+		return fmt.Errorf("no check, lint, typecheck, or test commands found")
+	}
+
+	fmt.Fprintf(os.Stderr, "Running check (synthesizing from available commands)...\n")
+
+	for _, cmdName := range commands {
+		// Skip typecheck if it doesn't exist for this project type
+		if cmdName == "typecheck" && !r.hasTypecheckCapability() {
+			continue
+		}
+
+		if !r.hasCommand(cmdName) {
+			continue
+		}
+
 		fmt.Fprintf(os.Stderr, "\n→ Running %s...\n", cmdName)
 		subRunner := &CommandRunner{
 			Command:     cmdName,
@@ -37,23 +65,15 @@ func HandleCheckCommand(r *CommandRunner) error {
 			ProjectRoot: r.ProjectRoot,
 		}
 
-		if cmdName == "typecheck" {
-			// For typecheck, if it doesn't exist as a command, skip it with a message
-			if !r.hasTypecheckCommand() {
-				fmt.Fprintf(os.Stderr, "  No separate typecheck command for this project type\n")
-				continue
-			}
-		}
-
 		if err := subRunner.Run(); err != nil {
-			// If lint or typecheck fails, continue to run the other commands
-			// but return the error at the end
-			if cmdName != "test" {
-				fmt.Fprintf(os.Stderr, "  Warning: %s failed: %v\n", cmdName, err)
-				continue
-			}
-			return fmt.Errorf("%s failed: %w", cmdName, err)
+			hasErrors = true
+			failedCommands = append(failedCommands, cmdName)
+			fmt.Fprintf(os.Stderr, "  ✗ %s failed: %v\n", cmdName, err)
 		}
+	}
+
+	if hasErrors {
+		return fmt.Errorf("check failed: %s", strings.Join(failedCommands, ", "))
 	}
 
 	return nil
@@ -107,8 +127,23 @@ func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 	return nil
 }
 
-func (r *CommandRunner) hasTypecheckCommand() bool {
-	// Check if current project type supports typecheck
+// hasCommand checks if a command exists in any runner
+func (r *CommandRunner) hasCommand(command string) bool {
+	dirs := []string{r.CurrentDir}
+	if r.ProjectRoot != r.CurrentDir {
+		dirs = append(dirs, r.ProjectRoot)
+	}
+
+	for _, dir := range dirs {
+		if cmd := r.FindCommand(dir); cmd != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// hasTypecheckCapability checks if the project supports typechecking
+func (r *CommandRunner) hasTypecheckCapability() bool {
 	dirs := []string{r.CurrentDir}
 	if r.ProjectRoot != r.CurrentDir {
 		dirs = append(dirs, r.ProjectRoot)

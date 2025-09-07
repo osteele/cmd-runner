@@ -93,25 +93,55 @@ cr format             # Same as cmdr format
 - `lint` - Run linters
 - `typecheck` - Run type checker (TypeScript, Python, Rust, Go)
 - `test` - Run tests
-- `check` - Run lint, typecheck, and test together
-- `fix` - Auto-fix issues
+- `check` - Run lint, typecheck, and test together (uses native check if available, otherwise synthesizes)
+- `fix` - Auto-fix issues (uses native fix if available, otherwise runs format and lint --fix)
 - `clean` - Clean build artifacts
 - `install` / `setup` - Install dependencies
+
+### Smart Command Synthesis
+
+- **check**: If no native `check` command exists, automatically runs `lint`, `typecheck`, and `test` in sequence
+- **fix**: If no native `fix` command exists, automatically runs `format` and `lint --fix`
+- **typecheck**: Errors if the project doesn't support type checking (no TypeScript, Python with pyright/mypy, Rust, or Go)
+
+## Supported Languages & Stacks
+
+### JavaScript/TypeScript
+- **Package Managers**: bun, pnpm, yarn, npm, deno
+- **Type Checking**: TypeScript (`tsc`)
+- **Common Tools**: biome, eslint, prettier
+
+### Python
+- **Package Manager**: uv (with pyproject.toml)
+- **Type Checking**: pyright, mypy
+- **Common Tools**: ruff, pytest
+
+### Rust
+- **Build System**: cargo
+- **Type Checking**: Built-in (`cargo check`)
+- **Common Tools**: clippy, rustfmt
+
+### Go
+- **Build System**: go modules
+- **Type Checking**: Built-in (`go build`)
+- **Common Tools**: go vet, gofmt
+
+### Java/Kotlin
+- **Build Systems**: gradle, maven
+- **Type Checking**: Built-in compilation
 
 ## Supported Build Systems
 
 The tool searches for commands in the following order:
 
-1. **mise** - `.mise.toml`
-2. **just** - `justfile` or `Justfile`
-3. **make** - `Makefile` or `makefile`
-4. **npm** - `package.json` (with npm)
-5. **bun** - `package.json` (with bun.lockb)
-6. **cargo** - `Cargo.toml` (Rust)
-7. **go** - `go.mod`
-8. **uv** - `pyproject.toml` (Python with uv)
-9. **gradle** - `build.gradle` or `build.gradle.kts`
-10. **maven** - `pom.xml`
+1. **mise** - `.mise.toml` (polyglot runtime manager)
+2. **just** - `justfile` or `Justfile` (command runner)
+3. **make** - `Makefile` or `makefile` (classic build tool)
+4. **Node.js** - `package.json` with bun/pnpm/yarn/npm
+5. **Rust** - `Cargo.toml` (cargo)
+6. **Go** - `go.mod` (go modules)
+7. **Python** - `pyproject.toml` with uv
+8. **Java/Kotlin** - `build.gradle[.kts]` (gradle) or `pom.xml` (maven)
 
 ## Search Strategy
 
