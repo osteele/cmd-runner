@@ -134,8 +134,16 @@ func (r *CommandRunner) hasCommand(command string) bool {
 		dirs = append(dirs, r.ProjectRoot)
 	}
 
+	// Create a temporary runner to check for the specific command
+	tempRunner := &CommandRunner{
+		Command:     command,
+		Args:        []string{},
+		CurrentDir:  r.CurrentDir,
+		ProjectRoot: r.ProjectRoot,
+	}
+
 	for _, dir := range dirs {
-		if cmd := r.FindCommand(dir); cmd != nil {
+		if cmd := tempRunner.FindCommand(dir); cmd != nil {
 			return true
 		}
 	}
