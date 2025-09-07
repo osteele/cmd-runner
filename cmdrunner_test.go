@@ -47,7 +47,8 @@ func TestGetCommandVariants(t *testing.T) {
 		{"run", []string{"run", "dev", "serve", "start"}},
 		{"lint", []string{"lint"}},
 		{"check", []string{"check"}},
-		{"typecheck", []string{"typecheck", "type-check", "types"}},
+		{"typecheck", []string{"typecheck", "type-check", "types", "tc"}},
+		{"tc", []string{"tc", "typecheck", "type-check", "types"}},
 		{"unknown", []string{"unknown"}},
 	}
 

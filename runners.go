@@ -102,6 +102,66 @@ func (m *makeRunner) checkTargetInFile(path, target string) bool {
 	return false
 }
 
+type denoRunner struct{}
+
+func (d *denoRunner) findCommand(dir, command string, args []string) *exec.Cmd {
+	// Check for Deno config files
+	if !FileExists(filepath.Join(dir, "deno.json")) && 
+	   !FileExists(filepath.Join(dir, "deno.jsonc")) &&
+	   !FileExists(filepath.Join(dir, "deno.lock")) {
+		return nil
+	}
+
+	// Deno uses "deno task" for scripts
+	denoCommands := map[string]string{
+		"run":       "run",
+		"dev":       "run",
+		"start":     "run",
+		"test":      "test",
+		"lint":      "lint",
+		"format":    "fmt",
+		"fmt":       "fmt",
+		"typecheck": "check",
+		"tc":        "check",
+		"check":     "check",
+		"build":     "compile",
+		"install":   "install",
+	}
+
+	for _, variant := range GetCommandVariants(command) {
+		if denoCmd, ok := denoCommands[variant]; ok {
+			// For run commands, try to find the main file
+			if denoCmd == "run" {
+				// Look for common entry points
+				for _, entry := range []string{"main.ts", "main.js", "mod.ts", "mod.js", "index.ts", "index.js"} {
+					if FileExists(filepath.Join(dir, entry)) {
+						cmdArgs := append([]string{"run", "--allow-all", entry}, args...)
+						return exec.Command("deno", cmdArgs...)
+					}
+				}
+			}
+			cmdArgs := append([]string{denoCmd}, args...)
+			return exec.Command("deno", cmdArgs...)
+		}
+	}
+
+	// Check if there's a task defined in deno.json
+	if FileExists(filepath.Join(dir, "deno.json")) || FileExists(filepath.Join(dir, "deno.jsonc")) {
+		for _, variant := range GetCommandVariants(command) {
+			// Try to run as a task
+			testCmd := exec.Command("deno", "task", "--list")
+			testCmd.Dir = dir
+			output, err := testCmd.Output()
+			if err == nil && strings.Contains(string(output), variant) {
+				cmdArgs := append([]string{"task", variant}, args...)
+				return exec.Command("deno", cmdArgs...)
+			}
+		}
+	}
+
+	return nil
+}
+
 type nodePackageRunner struct{}
 
 func (n *nodePackageRunner) findCommand(dir, command string, args []string) *exec.Cmd {
@@ -156,37 +216,59 @@ func (n *nodePackageRunner) findCommand(dir, command string, args []string) *exe
 		return nil
 	}
 
+	// Deno uses "task" instead of "run"
+	if packageManager == "deno" {
+		cmdArgs := append([]string{"task", command}, args...)
+		return exec.Command(packageManager, cmdArgs...)
+	}
+
 	cmdArgs := append([]string{"run", command}, args...)
 	return exec.Command(packageManager, cmdArgs...)
 }
 
 func detectPackageManager(dir string) string {
 	// Priority order: bun > pnpm > yarn > npm > deno
-	// Based on lockfiles and common usage patterns
+	// Based on lockfiles first, then config files
 
-	// Check for Bun
+	// Check lockfiles first for accurate detection
 	if FileExists(filepath.Join(dir, "bun.lockb")) {
 		return "bun"
 	}
 
-	// Check for pnpm
 	if FileExists(filepath.Join(dir, "pnpm-lock.yaml")) {
 		return "pnpm"
 	}
 
-	// Check for Yarn
 	if FileExists(filepath.Join(dir, "yarn.lock")) {
 		return "yarn"
 	}
 
-	// Check for npm
 	if FileExists(filepath.Join(dir, "package-lock.json")) {
 		return "npm"
 	}
 
-	// Check for Deno
+	if FileExists(filepath.Join(dir, "deno.lock")) {
+		return "deno"
+	}
+
+	// Check for Deno config files
 	if FileExists(filepath.Join(dir, "deno.json")) || FileExists(filepath.Join(dir, "deno.jsonc")) {
 		return "deno"
+	}
+
+	// Fall back to config files if no lockfile exists
+	if FileExists(filepath.Join(dir, ".yarnrc.yml")) || FileExists(filepath.Join(dir, ".yarnrc")) {
+		return "yarn"
+	}
+
+	if FileExists(filepath.Join(dir, ".npmrc")) {
+		// Check if .npmrc indicates pnpm
+		if content, err := os.ReadFile(filepath.Join(dir, ".npmrc")); err == nil {
+			if strings.Contains(string(content), "pnpm") {
+				return "pnpm"
+			}
+		}
+		return "npm"
 	}
 
 	// Default to npm if package.json exists but no lockfile found
@@ -214,6 +296,10 @@ func (c *cargoRunner) findCommand(dir, command string, args []string) *exec.Cmd 
 		"fmt":       "fmt",
 		"clean":     "clean",
 		"typecheck": "check",
+		"tc":        "check",
+		"fix":       "fix",
+		"install":   "install",
+		"publish":   "publish",
 	}
 
 	for _, variant := range GetCommandVariants(command) {
@@ -222,6 +308,51 @@ func (c *cargoRunner) findCommand(dir, command string, args []string) *exec.Cmd 
 			return exec.Command("cargo", cmdArgs...)
 		}
 	}
+
+	// Try to parse custom scripts from Cargo.toml metadata
+	if data, err := os.ReadFile(cargoToml); err == nil {
+		// Simple check for binary targets
+		content := string(data)
+		
+		// Check for binary targets (run:binary-name pattern)
+		if strings.HasPrefix(command, "run:") {
+			binName := strings.TrimPrefix(command, "run:")
+			// Check if this binary exists in the Cargo.toml
+			if strings.Contains(content, `name = "`+binName+`"`) {
+				cmdArgs := append([]string{"run", "--bin", binName}, args...)
+				return exec.Command("cargo", cmdArgs...)
+			}
+		}
+
+		// Check for package.metadata.scripts (custom scripts)
+		// This is a simple pattern match - could be enhanced with proper TOML parsing
+		if strings.Contains(content, "[package.metadata.scripts]") {
+			// Try to find the command in the scripts section
+			lines := strings.Split(content, "\n")
+			inScripts := false
+			for _, line := range lines {
+				trimmed := strings.TrimSpace(line)
+				if trimmed == "[package.metadata.scripts]" {
+					inScripts = true
+					continue
+				}
+				if inScripts && strings.HasPrefix(trimmed, "[") {
+					// We've reached another section
+					break
+				}
+				if inScripts && strings.HasPrefix(trimmed, command+" =") {
+					// Found a matching script - extract the command
+					parts := strings.SplitN(trimmed, "=", 2)
+					if len(parts) == 2 {
+						scriptCmd := strings.Trim(parts[1], ` "`)
+						// Execute the script command through shell
+						return exec.Command("sh", "-c", scriptCmd)
+					}
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -243,6 +374,7 @@ func (g *goRunner) findCommand(dir, command string, args []string) *exec.Cmd {
 		"install":   {"mod", "download"},
 		"lint":      {"vet", "./..."},
 		"typecheck": {"build", "-o", "/dev/null"},
+		"tc":        {"build", "-o", "/dev/null"},
 	}
 
 	for _, variant := range GetCommandVariants(command) {
@@ -252,6 +384,53 @@ func (g *goRunner) findCommand(dir, command string, args []string) *exec.Cmd {
 		}
 	}
 	return nil
+}
+
+type poetryRunner struct{}
+
+func (p *poetryRunner) findCommand(dir, command string, args []string) *exec.Cmd {
+	// Check for Poetry project indicators
+	if !FileExists(filepath.Join(dir, "poetry.lock")) && !FileExists(filepath.Join(dir, "pyproject.toml")) {
+		return nil
+	}
+
+	// If pyproject.toml exists, check it contains poetry configuration
+	if FileExists(filepath.Join(dir, "pyproject.toml")) {
+		data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
+		if err == nil {
+			content := string(data)
+			// Only proceed if this is a Poetry project
+			if !strings.Contains(content, "[tool.poetry]") && !FileExists(filepath.Join(dir, "poetry.lock")) {
+				return nil
+			}
+		}
+	}
+
+	poetryCommands := map[string][]string{
+		"install":   {"install"},
+		"setup":     {"install"},
+		"run":       {"run", "python"},
+		"test":      {"run", "pytest"},
+		"lint":      {"run", "ruff", "check"},
+		"format":    {"run", "ruff", "format"},
+		"fmt":       {"run", "ruff", "format"},
+		"fix":       {"run", "ruff", "check", "--fix"},
+		"typecheck": {"run", "pyright"},
+		"tc":        {"run", "pyright"},
+		"build":     {"build"},
+		"publish":   {"publish"},
+	}
+
+	for _, variant := range GetCommandVariants(command) {
+		if poetryCmd, ok := poetryCommands[variant]; ok {
+			cmdArgs := append(poetryCmd, args...)
+			return exec.Command("poetry", cmdArgs...)
+		}
+	}
+
+	// Try to run any command through poetry run
+	cmdArgs := append([]string{"run", command}, args...)
+	return exec.Command("poetry", cmdArgs...)
 }
 
 type uvRunner struct{}
@@ -269,7 +448,8 @@ func (u *uvRunner) findCommand(dir, command string, args []string) *exec.Cmd {
 
 	content := string(data)
 	hasUv := strings.Contains(content, "[tool.uv]") ||
-		FileExists(filepath.Join(dir, "uv.lock"))
+		FileExists(filepath.Join(dir, "uv.lock")) ||
+		FileExists(filepath.Join(dir, ".uv"))
 
 	if !hasUv {
 		return nil
@@ -285,6 +465,7 @@ func (u *uvRunner) findCommand(dir, command string, args []string) *exec.Cmd {
 		"fmt":       {"run", "ruff", "format"},
 		"fix":       {"run", "ruff", "check", "--fix"},
 		"typecheck": {"run", "pyright"},
+		"tc":        {"run", "pyright"},
 	}
 
 	for _, variant := range GetCommandVariants(command) {

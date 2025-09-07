@@ -78,9 +78,11 @@ func (r *CommandRunner) FindCommand(dir string) *exec.Cmd {
 		&miseRunner{},
 		&justRunner{},
 		&makeRunner{},
+		&denoRunner{},
 		&nodePackageRunner{},
 		&cargoRunner{},
 		&goRunner{},
+		&poetryRunner{},
 		&uvRunner{},
 		&gradleRunner{},
 		&mavenRunner{},
@@ -123,7 +125,8 @@ func GetCommandVariants(command string) []string {
 		"clean":     {"clean"},
 		"install":   {"install", "setup"},
 		"check":     {"check"},
-		"typecheck": {"typecheck", "type-check", "types"},
+		"typecheck": {"typecheck", "type-check", "types", "tc"},
+		"tc":        {"tc", "typecheck", "type-check", "types"},
 	}
 
 	if v, ok := variants[command]; ok {
@@ -149,6 +152,7 @@ func NormalizeCommand(cmd string) string {
 		"setup":     {"setup", "install"},
 		"check":     {"check"},
 		"typecheck": {"typecheck"},
+		"tc":        {"typecheck"},
 	}
 
 	if alternatives, ok := aliases[cmd]; ok {
