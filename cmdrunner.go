@@ -49,9 +49,14 @@ func (r *CommandRunner) FindProjectRoot(dir string) string {
 }
 
 func (r *CommandRunner) Run() error {
-	// Special handling for 'check' command
-	if r.Command == "check" {
+	// Special handling for synthesized commands
+	switch r.Command {
+	case "check":
 		return HandleCheckCommand(r)
+	case "fix":
+		return HandleFixCommand(r)
+	case "typecheck":
+		return HandleTypecheckCommand(r)
 	}
 
 	dirs := []string{r.CurrentDir}

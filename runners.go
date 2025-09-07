@@ -75,19 +75,28 @@ func (m *makeRunner) hasTarget(dir, target string) bool {
 	for _, mf := range makefiles {
 		path := filepath.Join(dir, mf)
 		if FileExists(path) {
-			file, err := os.Open(path)
-			if err != nil {
-				continue
+			if found := m.checkTargetInFile(path, target); found {
+				return true
 			}
-			defer file.Close()
+		}
+	}
+	return false
+}
 
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				line := scanner.Text()
-				if strings.HasPrefix(line, target+":") {
-					return true
-				}
-			}
+func (m *makeRunner) checkTargetInFile(path, target string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, target+":") {
+			return true
 		}
 	}
 	return false
