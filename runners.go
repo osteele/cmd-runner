@@ -106,9 +106,9 @@ type denoRunner struct{}
 
 func (d *denoRunner) findCommand(dir, command string, args []string) *exec.Cmd {
 	// Check for Deno config files
-	if !FileExists(filepath.Join(dir, "deno.json")) && 
-	   !FileExists(filepath.Join(dir, "deno.jsonc")) &&
-	   !FileExists(filepath.Join(dir, "deno.lock")) {
+	if !FileExists(filepath.Join(dir, "deno.json")) &&
+		!FileExists(filepath.Join(dir, "deno.jsonc")) &&
+		!FileExists(filepath.Join(dir, "deno.lock")) {
 		return nil
 	}
 
@@ -313,7 +313,7 @@ func (c *cargoRunner) findCommand(dir, command string, args []string) *exec.Cmd 
 	if data, err := os.ReadFile(cargoToml); err == nil {
 		// Simple check for binary targets
 		content := string(data)
-		
+
 		// Check for binary targets (run:binary-name pattern)
 		if strings.HasPrefix(command, "run:") {
 			binName := strings.TrimPrefix(command, "run:")
