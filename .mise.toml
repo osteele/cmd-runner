@@ -1,0 +1,78 @@
+[tools]
+go = "1.25"
+golangci-lint = "2"
+lefthook = "1"
+
+[tasks.format]
+description = "Format Go code"
+run = "go fmt ./..."
+
+[tasks.fmt]
+alias = "format"
+
+[tasks.lint]
+description = "Run Go vet and golangci-lint"
+run = """
+go vet ./...
+golangci-lint run --timeout=5m
+"""
+
+[tasks.test]
+description = "Run tests"
+run = "go test -v ./..."
+
+[tasks.coverage]
+description = "Run tests with coverage"
+run = """
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+echo "Coverage report generated at coverage.html"
+"""
+
+[tasks.build]
+description = "Build the binary"
+run = "go build -o cmdr ./cmd/cmdr"
+
+[tasks.install]
+description = "Install the binary to the best available location"
+run = """
+go build -o cmdr ./cmd/cmdr
+
+# Try different install locations in order of preference
+if [[ -w /usr/local/bin ]]; then
+    cp cmdr /usr/local/bin/cmdr
+    echo "Installed to /usr/local/bin/cmdr"
+elif [[ -n "$GOPATH" && -d "$GOPATH/bin" ]]; then
+    cp cmdr "$GOPATH/bin/cmdr"
+    echo "Installed to $GOPATH/bin/cmdr"
+else
+    mkdir -p ~/.local/bin
+    cp cmdr ~/.local/bin/cmdr
+    echo "Installed to ~/.local/bin/cmdr"
+    echo "Make sure ~/.local/bin is in your PATH"
+fi
+
+rm cmdr
+"""
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "rm -f cmdr cmdr-* coverage.out coverage.html"
+
+[tasks.check]
+description = "Run all checks (format, lint, test)"
+run = """
+mise run format
+mise run lint
+mise run test
+"""
+
+[tasks.release]
+description = "Build for all platforms"
+run = """
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o cmdr-linux-amd64 ./cmd/cmdr
+GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o cmdr-darwin-amd64 ./cmd/cmdr
+GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o cmdr-darwin-arm64 ./cmd/cmdr
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o cmdr-windows-amd64.exe ./cmd/cmdr
+echo "Binaries built for all platforms"
+"""
