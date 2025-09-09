@@ -74,9 +74,17 @@ go install ./cmd/cmdr
 ## Usage
 
 ```bash
-cmdr <command> [args...]
+cmdr [OPTIONS] <command> [args...]
+cmdr --list                      # List all available commands for current project
+cmdr --help                      # Show help information
+cmdr --version                   # Show version
 cmdr install-alias [--dry-run]  # Install 'cr' alias to shell config
 ```
+
+Options:
+- `--list`, `-l` - List all available commands for current project
+- `--version`, `-v` - Show version information
+- `--help`, `-h` - Show help message
 
 Examples:
 ```bash
@@ -97,7 +105,42 @@ cmdr r                # run
 cmdr s                # serve/server
 cmdr b                # build
 cmdr l                # lint
+
+# Show all available commands
+cmdr --list           # List commands for current project
+cmdr -l               # Short form of --list
+
+# Flags are passed through to commands
+cmdr test --verbose   # Runs test command with --verbose flag
+cmdr build --prod     # Runs build command with --prod flag
 ```
+
+### Discovering Available Commands
+
+Use `cmdr --list` to see all available commands for your current project:
+
+```bash
+$ cmdr --list
+Available commands for this project:
+
+Node.js commands:
+  lint         → npm run lint
+  format       → npm run format
+  dev          → npm run dev
+  build        → npm run build
+  test         → npm run test
+
+Command aliases:
+  f  → format     t  → test       tc → typecheck
+  r  → run        s  → serve      b  → build
+  l  → lint
+```
+
+The list command shows:
+- Commands from your build system (make, just, npm scripts, etc.)
+- What each command will actually execute
+- Available short aliases
+- Synthesized commands provided by cmd-runner
 
 ## Supported Commands
 

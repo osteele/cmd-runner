@@ -13,25 +13,25 @@ func TestNormalizeCommand(t *testing.T) {
 	}{
 		{"format", "format"},
 		{"fmt", "format"},
-		{"f", "format"},      // Short alias
+		{"f", "format"}, // Short alias
 		{"run", "run"},
-		{"r", "run"},         // Short alias
+		{"r", "run"}, // Short alias
 		{"dev", "dev"},
 		{"serve", "serve"},
-		{"s", "serve"},       // Short alias
+		{"s", "serve"}, // Short alias
 		{"start", "start"},
 		{"build", "build"},
-		{"b", "build"},       // Short alias
+		{"b", "build"}, // Short alias
 		{"lint", "lint"},
-		{"l", "lint"},        // Short alias
+		{"l", "lint"}, // Short alias
 		{"test", "test"},
-		{"t", "test"},        // Short alias
+		{"t", "test"}, // Short alias
 		{"fix", "fix"},
 		{"clean", "clean"},
 		{"install", "install"},
 		{"setup", "setup"},
 		{"typecheck", "typecheck"},
-		{"tc", "typecheck"},  // Short alias
+		{"tc", "typecheck"}, // Short alias
 		{"check", "check"},
 		{"unknown", "unknown"},
 	}

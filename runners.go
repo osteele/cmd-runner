@@ -80,7 +80,9 @@ func findMakeCommandExact(dir, command string, args []string) *exec.Cmd {
 			if err != nil {
 				continue
 			}
-			defer file.Close()
+			defer func() {
+				_ = file.Close()
+			}()
 
 			scanner := bufio.NewScanner(file)
 			for scanner.Scan() {
