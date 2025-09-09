@@ -30,6 +30,11 @@ Running: make format
 # Or use the shorter alias
 $ cr test
 Running: cargo test
+
+# Ultra-short aliases work too
+$ cmdr t        # Same as: cmdr test
+$ cmdr f        # Same as: cmdr format
+$ cmdr b        # Same as: cmdr build
 ```
 
 ## Installation
@@ -83,20 +88,34 @@ cmdr build -- --prod  # Runs build with additional arguments
 # Or with the short alias (after installing)
 cr test               # Same as cmdr test
 cr format             # Same as cmdr format
+
+# Ultra-short command aliases
+cmdr f                # format
+cmdr t                # test
+cmdr tc               # typecheck
+cmdr r                # run
+cmdr s                # serve/server
+cmdr b                # build
+cmdr l                # lint
 ```
 
 ## Supported Commands
 
-- `format` / `fmt` - Code formatting
-- `run` / `dev` / `serve` / `start` - Run development server or application
-- `build` - Build the project
-- `lint` - Run linters
-- `typecheck` - Run type checker (TypeScript, Python, Rust, Go)
-- `test` - Run tests
-- `check` - Run lint, typecheck, and test together (uses native check if available, otherwise synthesizes)
-- `fix` - Auto-fix issues (uses native fix if available, otherwise runs format and lint --fix)
-- `clean` - Clean build artifacts
-- `install` / `setup` - Install dependencies
+| Command | Aliases | Short | Description |
+|---------|---------|-------|-------------|
+| `format` | `fmt` | `f` | Code formatting |
+| `test` | `tests` | `t` | Run tests |
+| `typecheck` | `type-check`, `types` | `tc` | Run type checker |
+| `run` | `dev`, `serve`, `start` | `r` | Run development server or application |
+| `serve` | `dev`, `run`, `start` | `s` | Run server (alias for run) |
+| `build` | - | `b` | Build the project |
+| `lint` | - | `l` | Run linters |
+| `check` | - | - | Run lint, typecheck, and test together |
+| `fix` | - | - | Auto-fix issues |
+| `clean` | - | - | Clean build artifacts |
+| `install` | `setup` | - | Install dependencies |
+
+**Note**: If a project has an actual command named `f`, `t`, etc., it will take precedence over the short alias expansion.
 
 ### Smart Command Synthesis
 

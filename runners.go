@@ -13,6 +13,125 @@ type commandFinder interface {
 	findCommand(dir, command string, args []string) *exec.Cmd
 }
 
+// findCommandExact looks for an exact command match without using variants
+func findCommandExact(runner commandFinder, dir, command string, args []string) *exec.Cmd {
+	// Create a temporary implementation that only checks for exact matches
+	switch r := runner.(type) {
+	case *justRunner:
+		return findJustCommandExact(dir, command, args)
+	case *nodePackageRunner:
+		return findNodeCommandExact(dir, command, args)
+	case *makeRunner:
+		return findMakeCommandExact(dir, command, args)
+	case *miseRunner:
+		return findMiseCommandExact(dir, command, args)
+	default:
+		// For other runners, we don't check for exact matches
+		// as they have predefined command sets
+		_ = r
+		return nil
+	}
+}
+
+func findMiseCommandExact(dir, command string, args []string) *exec.Cmd {
+	miseFile := filepath.Join(dir, ".mise.toml")
+	if !FileExists(miseFile) {
+		return nil
+	}
+
+	testCmd := exec.Command("mise", "run", "--list")
+	testCmd.Dir = dir
+	output, err := testCmd.Output()
+	if err == nil && strings.Contains(string(output), command) {
+		cmdArgs := append([]string{"run", command}, args...)
+		return exec.Command("mise", cmdArgs...)
+	}
+	return nil
+}
+
+func findJustCommandExact(dir, command string, args []string) *exec.Cmd {
+	justfile := filepath.Join(dir, "justfile")
+	if !FileExists(justfile) && !FileExists(filepath.Join(dir, "Justfile")) {
+		return nil
+	}
+
+	testCmd := exec.Command("just", "--list")
+	testCmd.Dir = dir
+	output, err := testCmd.Output()
+	if err == nil && strings.Contains(string(output), command) {
+		cmdArgs := append([]string{command}, args...)
+		return exec.Command("just", cmdArgs...)
+	}
+	return nil
+}
+
+func findMakeCommandExact(dir, command string, args []string) *exec.Cmd {
+	makefile := filepath.Join(dir, "Makefile")
+	if !FileExists(makefile) && !FileExists(filepath.Join(dir, "makefile")) {
+		return nil
+	}
+
+	// Check if exact target exists
+	makefiles := []string{"Makefile", "makefile"}
+	for _, mf := range makefiles {
+		path := filepath.Join(dir, mf)
+		if FileExists(path) {
+			file, err := os.Open(path)
+			if err != nil {
+				continue
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.HasPrefix(line, command+":") {
+					cmdArgs := append([]string{command}, args...)
+					return exec.Command("make", cmdArgs...)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func findNodeCommandExact(dir, command string, args []string) *exec.Cmd {
+	packageJSON := filepath.Join(dir, "package.json")
+	if !FileExists(packageJSON) {
+		return nil
+	}
+
+	data, err := os.ReadFile(packageJSON)
+	if err != nil {
+		return nil
+	}
+
+	var pkg struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil
+	}
+
+	// Check if exact script exists
+	if _, ok := pkg.Scripts[command]; ok {
+		packageManager := detectPackageManager(dir)
+		if packageManager == "" {
+			return nil
+		}
+
+		if packageManager == "deno" {
+			cmdArgs := append([]string{"task", command}, args...)
+			return exec.Command(packageManager, cmdArgs...)
+		}
+
+		cmdArgs := append([]string{"run", command}, args...)
+		return exec.Command(packageManager, cmdArgs...)
+	}
+
+	return nil
+}
+
 type miseRunner struct{}
 
 func (m *miseRunner) findCommand(dir, command string, args []string) *exec.Cmd {
