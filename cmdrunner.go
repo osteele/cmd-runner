@@ -49,16 +49,6 @@ func (r *CommandRunner) FindProjectRoot(dir string) string {
 }
 
 func (r *CommandRunner) Run() error {
-	// Special handling for synthesized commands
-	switch r.Command {
-	case "check":
-		return HandleCheckCommand(r)
-	case "fix":
-		return HandleFixCommand(r)
-	case "typecheck":
-		return HandleTypecheckCommand(r)
-	}
-
 	dirs := []string{r.CurrentDir}
 	if r.ProjectRoot != r.CurrentDir {
 		dirs = append(dirs, r.ProjectRoot)
@@ -66,11 +56,22 @@ func (r *CommandRunner) Run() error {
 
 	// First try to find the command as-is (without normalization)
 	// This allows actual commands named 'f', 't', etc. to take precedence
+	// This also allows projects with their own 'check', 'fix', etc. to take precedence
 	originalCommand := r.Command
 	for _, dir := range dirs {
 		if cmd := r.FindCommandExact(dir, originalCommand); cmd != nil {
 			return r.ExecuteCommand(cmd)
 		}
+	}
+
+	// Special handling for synthesized commands (only if no exact match found)
+	switch r.Command {
+	case "check":
+		return HandleCheckCommand(r)
+	case "fix":
+		return HandleFixCommand(r)
+	case "typecheck":
+		return HandleTypecheckCommand(r)
 	}
 
 	// If no direct match found and the command might be an alias,
