@@ -157,9 +157,11 @@ cmd-runner/
 ├── cmd/
 │   └── cmdr/
 │       └── main.go      # CLI entry point
-├── cmdrunner.go         # Main library package
+├── cmdrunner.go         # Main library package (includes command aliasing)
 ├── runners.go           # Build system runners
 ├── check.go            # Check command implementation
+├── fix.go              # Fix command implementation
+├── typecheck.go        # Typecheck command implementation
 ├── cmdrunner_test.go   # Tests for cmdrunner package
 ├── runners_test.go     # Tests for runners
 ├── lefthook.yml        # Git hooks configuration
@@ -168,13 +170,29 @@ cmd-runner/
 ├── go.sum              # Dependency checksums
 ├── README.md           # User documentation
 ├── DEVELOPMENT.md      # This file
+├── ROADMAP.md          # Future development plans
 ├── LICENSE             # MIT License
 └── .gitignore          # Git ignore rules
 ```
 
+## Command Aliasing
+
+The tool supports multiple levels of command aliasing:
+
+1. **Short aliases**: Single-letter shortcuts (e.g., `f` → `format`, `t` → `test`)
+2. **Standard aliases**: Common variations (e.g., `fmt` → `format`, `dev` → `run`)
+3. **Exact command priority**: If a project has an actual command named `f`, it takes precedence over the alias
+
+### Adding New Aliases
+
+To add a new command alias, update two places in `cmdrunner.go`:
+
+1. `NormalizeCommand()` - Maps input commands to canonical forms
+2. `GetCommandVariants()` - Returns all variations to try for a command
+
 ## Testing Strategy
 
-- Unit tests for individual functions
+- Unit tests for individual functions including command aliasing
 - Integration tests for command detection
 - Mock filesystem operations where needed
 - Test coverage target: 80%+

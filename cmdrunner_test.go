@@ -13,18 +13,26 @@ func TestNormalizeCommand(t *testing.T) {
 	}{
 		{"format", "format"},
 		{"fmt", "format"},
+		{"f", "format"},      // Short alias
 		{"run", "run"},
+		{"r", "run"},         // Short alias
 		{"dev", "dev"},
 		{"serve", "serve"},
+		{"s", "serve"},       // Short alias
 		{"start", "start"},
 		{"build", "build"},
+		{"b", "build"},       // Short alias
 		{"lint", "lint"},
-		{"check", "check"},
+		{"l", "lint"},        // Short alias
 		{"test", "test"},
+		{"t", "test"},        // Short alias
 		{"fix", "fix"},
 		{"clean", "clean"},
 		{"install", "install"},
 		{"setup", "setup"},
+		{"typecheck", "typecheck"},
+		{"tc", "typecheck"},  // Short alias
+		{"check", "check"},
 		{"unknown", "unknown"},
 	}
 
@@ -43,9 +51,18 @@ func TestGetCommandVariants(t *testing.T) {
 		command  string
 		expected []string
 	}{
-		{"format", []string{"format", "fmt"}},
-		{"run", []string{"run", "dev", "serve", "start"}},
-		{"lint", []string{"lint"}},
+		{"format", []string{"format", "fmt", "f"}},
+		{"f", []string{"f", "format", "fmt"}},
+		{"run", []string{"run", "r", "dev", "serve", "start"}},
+		{"r", []string{"r", "run", "dev", "serve", "start"}},
+		{"lint", []string{"lint", "l"}},
+		{"l", []string{"l", "lint"}},
+		{"test", []string{"test", "t", "tests"}},
+		{"t", []string{"t", "test", "tests"}},
+		{"build", []string{"build", "b"}},
+		{"b", []string{"b", "build"}},
+		{"serve", []string{"serve", "s", "dev", "run", "start"}},
+		{"s", []string{"s", "serve", "dev", "run", "start"}},
 		{"check", []string{"check"}},
 		{"typecheck", []string{"typecheck", "type-check", "types", "tc"}},
 		{"tc", []string{"tc", "typecheck", "type-check", "types"}},

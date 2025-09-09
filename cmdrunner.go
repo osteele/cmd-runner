@@ -64,6 +64,17 @@ func (r *CommandRunner) Run() error {
 		dirs = append(dirs, r.ProjectRoot)
 	}
 
+	// First try to find the command as-is (without normalization)
+	// This allows actual commands named 'f', 't', etc. to take precedence
+	originalCommand := r.Command
+	for _, dir := range dirs {
+		if cmd := r.FindCommandExact(dir, originalCommand); cmd != nil {
+			return r.ExecuteCommand(cmd)
+		}
+	}
+
+	// If no direct match found and the command might be an alias,
+	// try with the normalized version
 	for _, dir := range dirs {
 		if cmd := r.FindCommand(dir); cmd != nil {
 			return r.ExecuteCommand(cmd)
@@ -71,6 +82,33 @@ func (r *CommandRunner) Run() error {
 	}
 
 	return fmt.Errorf("no command '%s' found in current directory or project root", r.Command)
+}
+
+func (r *CommandRunner) FindCommandExact(dir string, command string) *exec.Cmd {
+	runners := []commandFinder{
+		&miseRunner{},
+		&justRunner{},
+		&makeRunner{},
+		&denoRunner{},
+		&nodePackageRunner{},
+		&cargoRunner{},
+		&goRunner{},
+		&poetryRunner{},
+		&uvRunner{},
+		&gradleRunner{},
+		&mavenRunner{},
+	}
+
+	// Try to find exact match - only use the command as-is, no variants
+	for _, runner := range runners {
+		// Use a special version that only checks for exact command match
+		if cmd := findCommandExact(runner, dir, command, r.Args); cmd != nil {
+			cmd.Dir = dir
+			return cmd
+		}
+	}
+
+	return nil
 }
 
 func (r *CommandRunner) FindCommand(dir string) *exec.Cmd {
@@ -114,13 +152,19 @@ func FileExists(path string) bool {
 
 func GetCommandVariants(command string) []string {
 	variants := map[string][]string{
-		"format":    {"format", "fmt"},
-		"run":       {"run", "dev", "serve", "start"},
+		"format":    {"format", "fmt", "f"},
+		"f":         {"f", "format", "fmt"},
+		"run":       {"run", "r", "dev", "serve", "start"},
+		"r":         {"r", "run", "dev", "serve", "start"},
 		"dev":       {"dev", "run", "serve", "start"},
-		"serve":     {"serve", "dev", "run", "start"},
-		"build":     {"build"},
-		"lint":      {"lint"},
-		"test":      {"test", "tests"},
+		"serve":     {"serve", "s", "dev", "run", "start"},
+		"s":         {"s", "serve", "dev", "run", "start"},
+		"build":     {"build", "b"},
+		"b":         {"b", "build"},
+		"lint":      {"lint", "l"},
+		"l":         {"l", "lint"},
+		"test":      {"test", "t", "tests"},
+		"t":         {"t", "test", "tests"},
 		"fix":       {"fix", "format-fix", "lint-fix"},
 		"clean":     {"clean"},
 		"install":   {"install", "setup"},
@@ -139,20 +183,26 @@ func NormalizeCommand(cmd string) string {
 	aliases := map[string][]string{
 		"format":    {"format", "fmt"},
 		"fmt":       {"format", "fmt"},
+		"f":         {"format"},  // Short alias for format
 		"run":       {"run", "dev", "serve", "start"},
+		"r":         {"run"},      // Short alias for run
 		"dev":       {"dev", "run", "serve", "start"},
 		"serve":     {"serve", "dev", "run", "start"},
+		"s":         {"serve"},    // Short alias for serve/server
 		"start":     {"start", "run", "dev", "serve"},
 		"build":     {"build"},
+		"b":         {"build"},    // Short alias for build
 		"lint":      {"lint"},
+		"l":         {"lint"},     // Short alias for lint
 		"test":      {"test"},
+		"t":         {"test"},     // Short alias for test
 		"fix":       {"fix"},
 		"clean":     {"clean"},
 		"install":   {"install", "setup"},
 		"setup":     {"setup", "install"},
 		"check":     {"check"},
 		"typecheck": {"typecheck"},
-		"tc":        {"typecheck"},
+		"tc":        {"typecheck"}, // Short alias for typecheck
 	}
 
 	if alternatives, ok := aliases[cmd]; ok {
