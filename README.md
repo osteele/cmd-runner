@@ -46,6 +46,25 @@ $ cmdr t        # Short alias for test
 $ cmdr check    # Runs lint, typecheck, and test together
 ```
 
+## Interactive Mode
+
+For a more interactive experience, use the `-i` flag to launch interactive mode:
+
+```bash
+$ cmdr -i
+# or
+$ cr -i
+```
+
+This launches an interactive menu where you can:
+- Press single keys to run common commands (`t` for test, `b` for build, etc.)
+- Use `.` to repeat the last command
+- Toggle between the menu and previous output with `/`
+- Type command names or unique prefixes for any command
+- Quit anytime with `q` or Ctrl+C
+
+The interactive mode maintains flow - successful commands return immediately to the menu, while failures pause for review.
+
 ## Example
 
 ```bash

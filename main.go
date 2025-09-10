@@ -16,6 +16,7 @@ func showHelp() {
 	fmt.Fprintf(os.Stderr, "Usage: cmdr [OPTIONS] <command> [args...]\n")
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Options:\n")
+	fmt.Fprintf(os.Stderr, "  --interactive, -i       Launch interactive mode for command selection\n")
 	fmt.Fprintf(os.Stderr, "  --list, -l              List available commands for current project\n")
 	fmt.Fprintf(os.Stderr, "    --all                 Show commands from all sources (not just primary)\n")
 	fmt.Fprintf(os.Stderr, "    --verbose             Show full command descriptions\n")
@@ -52,6 +53,17 @@ func main() {
 	if len(os.Args) < 2 {
 		showHelp()
 		os.Exit(1)
+	}
+
+	// Check for interactive mode first
+	for _, arg := range os.Args[1:] {
+		if arg == "--interactive" || arg == "-i" {
+			if err := internal.RunInteractive(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
 	}
 
 	// Look for the first non-flag argument (the command)
