@@ -1,4 +1,4 @@
-package cmdrunner
+package internal
 
 import (
 	"encoding/json"
@@ -129,11 +129,6 @@ func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 
 // hasCommand checks if a command exists in any runner
 func (r *CommandRunner) hasCommand(command string) bool {
-	dirs := []string{r.CurrentDir}
-	if r.ProjectRoot != r.CurrentDir {
-		dirs = append(dirs, r.ProjectRoot)
-	}
-
 	// Create a temporary runner to check for the specific command
 	// Build projects and check if command exists
 	projects := []*Project{}

@@ -1,4 +1,4 @@
-package cmdrunner
+package internal
 
 import (
 	"os/exec"

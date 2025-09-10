@@ -1,0 +1,16 @@
+# golangci-lint configuration v2
+version: 2
+
+run:
+  timeout: 5m
+
+linters:
+  disable:
+    - unused  # Disabled due to restructuring - some runner types may appear unused
+
+issues:
+  exclude-rules:
+    # Exclude specific issues in internal/runners.go
+    - path: internal/runners.go
+      linters:
+        - unused

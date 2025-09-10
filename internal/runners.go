@@ -1,4 +1,4 @@
-package cmdrunner
+package internal
 
 import (
 	"bufio"
@@ -494,14 +494,16 @@ func (g *goRunner) findCommand(dir, command string, args []string) *exec.Cmd {
 		"clean":     {"clean"},
 		"install":   {"mod", "download"},
 		"lint":      {"vet", "./..."},
-		"typecheck": {"build", "-o", "/dev/null"},
-		"tc":        {"build", "-o", "/dev/null"},
+		"typecheck": {"build", "-o", "/dev/null", "./..."},
+		"tc":        {"build", "-o", "/dev/null", "./..."},
 	}
 
 	for _, variant := range GetCommandVariants(command) {
 		if goCmd, ok := goCommands[variant]; ok {
 			cmdArgs := append(goCmd, args...)
-			return exec.Command("go", cmdArgs...)
+			cmd := exec.Command("go", cmdArgs...)
+			cmd.Dir = dir
+			return cmd
 		}
 	}
 	return nil
