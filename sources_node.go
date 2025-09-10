@@ -12,22 +12,27 @@ type nodeBaseSource struct {
 	packageManager string
 }
 
-func (n *nodeBaseSource) ListCommands() map[string]string {
-	commands := make(map[string]string)
-	
+func (n *nodeBaseSource) ListCommands() map[string]CommandInfo {
 	scripts, err := parsePackageJsonScripts(n.dir)
 	if err != nil {
-		return commands
+		return map[string]CommandInfo{}
 	}
-	
-	for script := range scripts {
+
+	commands := make(map[string]CommandInfo)
+	for script, content := range scripts {
+		execution := ""
 		if n.packageManager == "deno" {
-			commands[script] = "deno task " + script
+			execution = "deno task " + script
 		} else {
-			commands[script] = n.packageManager + " run " + script
+			execution = n.packageManager + " run " + script
+		}
+
+		commands[script] = CommandInfo{
+			Description: content,
+			Execution:   execution,
 		}
 	}
-	
+
 	return commands
 }
 
@@ -36,7 +41,7 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 	if err != nil {
 		return nil
 	}
-	
+
 	// Check if script exists
 	var scriptExists bool
 	for _, variant := range GetCommandVariants(command) {
@@ -46,7 +51,7 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 			break
 		}
 	}
-	
+
 	// Special handling for typecheck in TypeScript projects
 	if !scriptExists && command == "typecheck" {
 		if FileExists(filepath.Join(n.dir, "tsconfig.json")) {
@@ -57,11 +62,11 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 			return cmd
 		}
 	}
-	
+
 	if !scriptExists {
 		return nil
 	}
-	
+
 	// Deno uses "task" instead of "run"
 	if n.packageManager == "deno" {
 		cmdArgs := append([]string{"task", command}, args...)
@@ -69,7 +74,7 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 		cmd.Dir = n.dir
 		return cmd
 	}
-	
+
 	cmdArgs := append([]string{"run", command}, args...)
 	cmd := exec.Command(n.packageManager, cmdArgs...)
 	cmd.Dir = n.dir
@@ -163,26 +168,29 @@ func NewDenoSource(dir string) CommandSource {
 	}
 }
 
-func (d *DenoSource) ListCommands() map[string]string {
-	commands := make(map[string]string)
-	
+func (d *DenoSource) ListCommands() map[string]CommandInfo {
+	commands := make(map[string]CommandInfo)
+
 	// Check if there's a package.json (Deno can use it)
 	if FileExists(filepath.Join(d.dir, "package.json")) {
 		if scripts, err := parsePackageJsonScripts(d.dir); err == nil {
-			for script := range scripts {
-				commands[script] = "deno task " + script
+			for script, content := range scripts {
+				commands[script] = CommandInfo{
+					Description: content,
+					Execution:   "deno task " + script,
+				}
 			}
 		}
 	}
-	
+
 	// Add standard Deno commands
-	commands["run"] = "deno run"
-	commands["test"] = "deno test"
-	commands["lint"] = "deno lint"
-	commands["format"] = "deno fmt"
-	commands["check"] = "deno check"
-	commands["build"] = "deno compile"
-	
+	commands["run"] = CommandInfo{Description: "Run a script", Execution: "deno run"}
+	commands["test"] = CommandInfo{Description: "Run tests", Execution: "deno test"}
+	commands["lint"] = CommandInfo{Description: "Run linter", Execution: "deno lint"}
+	commands["format"] = CommandInfo{Description: "Format code", Execution: "deno fmt"}
+	commands["check"] = CommandInfo{Description: "Type-check code", Execution: "deno check"}
+	commands["build"] = CommandInfo{Description: "Compile to executable", Execution: "deno compile"}
+
 	return commands
 }
 
@@ -202,7 +210,7 @@ func (d *DenoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"build":     "compile",
 		"install":   "install",
 	}
-	
+
 	for _, variant := range GetCommandVariants(command) {
 		if denoCmd, ok := denoCommands[variant]; ok {
 			// For run commands, try to find the main file
@@ -223,7 +231,7 @@ func (d *DenoSource) FindCommand(command string, args []string) *exec.Cmd {
 			return cmd
 		}
 	}
-	
+
 	// Check if there's a task defined in deno.json
 	if FileExists(filepath.Join(d.dir, "deno.json")) || FileExists(filepath.Join(d.dir, "deno.jsonc")) {
 		for _, variant := range GetCommandVariants(command) {
@@ -239,6 +247,6 @@ func (d *DenoSource) FindCommand(command string, args []string) *exec.Cmd {
 			}
 		}
 	}
-	
+
 	return nil
 }
