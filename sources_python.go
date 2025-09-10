@@ -25,7 +25,7 @@ func NewPoetrySource(dir string) CommandSource {
 			return nil
 		}
 	}
-	
+
 	return &PoetrySource{
 		baseSource: baseSource{
 			dir:      dir,
@@ -35,16 +35,16 @@ func NewPoetrySource(dir string) CommandSource {
 	}
 }
 
-func (p *PoetrySource) ListCommands() map[string]string {
-	return map[string]string{
-		"install":   "poetry install",
-		"run":       "poetry run python",
-		"test":      "poetry run pytest",
-		"format":    "poetry run ruff format",
-		"lint":      "poetry run ruff check",
-		"typecheck": "poetry run pyright",
-		"build":     "poetry build",
-		"publish":   "poetry publish",
+func (p *PoetrySource) ListCommands() map[string]CommandInfo {
+	return map[string]CommandInfo{
+		"install":   {Description: "Install dependencies", Execution: "poetry install"},
+		"run":       {Description: "Run Python interpreter", Execution: "poetry run python"},
+		"test":      {Description: "Run tests", Execution: "poetry run pytest"},
+		"format":    {Description: "Format code", Execution: "poetry run ruff format"},
+		"lint":      {Description: "Run linter", Execution: "poetry run ruff check"},
+		"typecheck": {Description: "Run type checker", Execution: "poetry run pyright"},
+		"build":     {Description: "Build distribution", Execution: "poetry build"},
+		"publish":   {Description: "Publish to PyPI", Execution: "poetry publish"},
 	}
 }
 
@@ -63,7 +63,7 @@ func (p *PoetrySource) FindCommand(command string, args []string) *exec.Cmd {
 		"build":     {"build"},
 		"publish":   {"publish"},
 	}
-	
+
 	for _, variant := range GetCommandVariants(command) {
 		if poetryCmd, ok := poetryCommands[variant]; ok {
 			cmdArgs := append(poetryCmd, args...)
@@ -72,7 +72,7 @@ func (p *PoetrySource) FindCommand(command string, args []string) *exec.Cmd {
 			return cmd
 		}
 	}
-	
+
 	// Try to run any command through poetry run
 	cmdArgs := append([]string{"run", command}, args...)
 	cmd := exec.Command("poetry", cmdArgs...)
@@ -88,7 +88,7 @@ type UvSource struct {
 func NewUvSource(dir string) CommandSource {
 	// Verify it's actually a uv project
 	hasUv := false
-	
+
 	if FileExists(filepath.Join(dir, "uv.lock")) || FileExists(filepath.Join(dir, ".uv")) {
 		hasUv = true
 	} else if FileExists(filepath.Join(dir, "pyproject.toml")) {
@@ -97,11 +97,11 @@ func NewUvSource(dir string) CommandSource {
 			hasUv = true
 		}
 	}
-	
+
 	if !hasUv {
 		return nil
 	}
-	
+
 	return &UvSource{
 		baseSource: baseSource{
 			dir:      dir,
@@ -111,14 +111,14 @@ func NewUvSource(dir string) CommandSource {
 	}
 }
 
-func (u *UvSource) ListCommands() map[string]string {
-	return map[string]string{
-		"install":   "uv sync",
-		"run":       "uv run",
-		"test":      "uv run pytest",
-		"format":    "uv run ruff format",
-		"lint":      "uv run ruff check",
-		"typecheck": "uv run pyright",
+func (u *UvSource) ListCommands() map[string]CommandInfo {
+	return map[string]CommandInfo{
+		"install":   {Description: "Install dependencies", Execution: "uv sync"},
+		"run":       {Description: "Run a command", Execution: "uv run"},
+		"test":      {Description: "Run tests", Execution: "uv run pytest"},
+		"format":    {Description: "Format code", Execution: "uv run ruff format"},
+		"lint":      {Description: "Run linter", Execution: "uv run ruff check"},
+		"typecheck": {Description: "Run type checker", Execution: "uv run pyright"},
 	}
 }
 
@@ -135,7 +135,7 @@ func (u *UvSource) FindCommand(command string, args []string) *exec.Cmd {
 		"typecheck": {"run", "pyright"},
 		"tc":        {"run", "pyright"},
 	}
-	
+
 	for _, variant := range GetCommandVariants(command) {
 		if uvCmd, ok := uvCommands[variant]; ok {
 			cmdArgs := append(uvCmd, args...)
@@ -144,6 +144,6 @@ func (u *UvSource) FindCommand(command string, args []string) *exec.Cmd {
 			return cmd
 		}
 	}
-	
+
 	return nil
 }

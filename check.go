@@ -141,7 +141,7 @@ func (r *CommandRunner) hasCommand(command string) bool {
 	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
 		projects = append(projects, ResolveProject(r.ProjectRoot))
 	}
-	
+
 	for _, project := range projects {
 		for _, source := range project.CommandSources {
 			if cmd := source.FindCommand(command, []string{}); cmd != nil {
