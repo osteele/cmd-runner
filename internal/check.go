@@ -85,7 +85,9 @@ func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 		testCmd := exec.Command("mise", "run", "--list")
 		testCmd.Dir = dir
 		if output, err := testCmd.Output(); err == nil && strings.Contains(string(output), "check") {
-			return exec.Command("mise", append([]string{"run", "check"}, r.Args...)...)
+			cmd := exec.Command("mise", append([]string{"run", "check"}, r.Args...)...)
+			cmd.Dir = dir
+			return cmd
 		}
 	}
 
@@ -94,7 +96,9 @@ func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 		testCmd := exec.Command("just", "--list")
 		testCmd.Dir = dir
 		if output, err := testCmd.Output(); err == nil && strings.Contains(string(output), "check") {
-			return exec.Command("just", append([]string{"check"}, r.Args...)...)
+			cmd := exec.Command("just", append([]string{"check"}, r.Args...)...)
+			cmd.Dir = dir
+			return cmd
 		}
 	}
 
@@ -102,7 +106,9 @@ func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 	if FileExists(filepath.Join(dir, "Makefile")) || FileExists(filepath.Join(dir, "makefile")) {
 		makeRunner := &makeRunner{}
 		if makeRunner.hasTarget(dir, "check") {
-			return exec.Command("make", append([]string{"check"}, r.Args...)...)
+			cmd := exec.Command("make", append([]string{"check"}, r.Args...)...)
+			cmd.Dir = dir
+			return cmd
 		}
 	}
 
@@ -117,7 +123,9 @@ func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 				if _, ok := pkg.Scripts["check"]; ok {
 					packageManager := detectPackageManager(dir)
 					if packageManager != "" {
-						return exec.Command(packageManager, append([]string{"run", "check"}, r.Args...)...)
+						cmd := exec.Command(packageManager, append([]string{"run", "check"}, r.Args...)...)
+						cmd.Dir = dir
+						return cmd
 					}
 				}
 			}
