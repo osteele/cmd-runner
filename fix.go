@@ -28,14 +28,14 @@ func HandleFixCommand(r *CommandRunner) error {
 
 // findNativeFixCommand looks for a native fix command in the project
 func (r *CommandRunner) findNativeFixCommand(dir string) *exec.Cmd {
-	// Create a temporary runner to check for fix command
-	tempRunner := &CommandRunner{
-		Command:     "fix",
-		Args:        r.Args,
-		CurrentDir:  dir,
-		ProjectRoot: r.ProjectRoot,
+	// Check if there's a native fix command
+	project := ResolveProject(dir)
+	for _, source := range project.CommandSources {
+		if cmd := source.FindCommand("fix", r.Args); cmd != nil {
+			return cmd
+		}
 	}
-	return tempRunner.FindCommand(dir)
+	return nil
 }
 
 // synthesizeFixCommand runs format and lint fix commands

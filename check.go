@@ -135,16 +135,18 @@ func (r *CommandRunner) hasCommand(command string) bool {
 	}
 
 	// Create a temporary runner to check for the specific command
-	tempRunner := &CommandRunner{
-		Command:     command,
-		Args:        []string{},
-		CurrentDir:  r.CurrentDir,
-		ProjectRoot: r.ProjectRoot,
+	// Build projects and check if command exists
+	projects := []*Project{}
+	projects = append(projects, ResolveProject(r.CurrentDir))
+	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
+		projects = append(projects, ResolveProject(r.ProjectRoot))
 	}
-
-	for _, dir := range dirs {
-		if cmd := tempRunner.FindCommand(dir); cmd != nil {
-			return true
+	
+	for _, project := range projects {
+		for _, source := range project.CommandSources {
+			if cmd := source.FindCommand(command, []string{}); cmd != nil {
+				return true
+			}
 		}
 	}
 	return false

@@ -1,8 +1,6 @@
 package cmdrunner
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -51,21 +49,26 @@ func (r *CommandRunner) FindProjectRoot(dir string) string {
 }
 
 func (r *CommandRunner) Run() error {
-	dirs := []string{r.CurrentDir}
-	if r.ProjectRoot != r.CurrentDir {
-		dirs = append(dirs, r.ProjectRoot)
+	// Build projects for current dir and project root
+	projects := []*Project{}
+	
+	// Add current directory project
+	projects = append(projects, ResolveProject(r.CurrentDir))
+	
+	// Add project root if different
+	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
+		projects = append(projects, ResolveProject(r.ProjectRoot))
 	}
-
-	// First try to find the command as-is (without normalization)
-	// This allows actual commands named 'f', 't', etc. to take precedence
-	// This also allows projects with their own 'check', 'fix', etc. to take precedence
-	originalCommand := r.Command
-	for _, dir := range dirs {
-		if cmd := r.FindCommandExact(dir, originalCommand); cmd != nil {
-			return r.ExecuteCommand(cmd)
+	
+	// First, try to find the exact command (no normalization)
+	for _, project := range projects {
+		for _, source := range project.CommandSources {
+			if cmd := source.FindCommand(r.Command, r.Args); cmd != nil {
+				return r.ExecuteCommand(cmd)
+			}
 		}
 	}
-
+	
 	// Special handling for synthesized commands (only if no exact match found)
 	switch r.Command {
 	case "check":
@@ -75,69 +78,23 @@ func (r *CommandRunner) Run() error {
 	case "typecheck":
 		return HandleTypecheckCommand(r)
 	}
-
+	
 	// If no direct match found and the command might be an alias,
 	// try with the normalized version
-	for _, dir := range dirs {
-		if cmd := r.FindCommand(dir); cmd != nil {
-			return r.ExecuteCommand(cmd)
+	normalizedCommand := NormalizeCommand(r.Command)
+	if normalizedCommand != r.Command {
+		for _, project := range projects {
+			for _, source := range project.CommandSources {
+				if cmd := source.FindCommand(normalizedCommand, r.Args); cmd != nil {
+					return r.ExecuteCommand(cmd)
+				}
+			}
 		}
 	}
-
+	
 	return fmt.Errorf("no command '%s' found in current directory or project root", r.Command)
 }
 
-func (r *CommandRunner) FindCommandExact(dir string, command string) *exec.Cmd {
-	runners := []commandFinder{
-		&miseRunner{},
-		&justRunner{},
-		&makeRunner{},
-		&denoRunner{},
-		&nodePackageRunner{},
-		&cargoRunner{},
-		&goRunner{},
-		&poetryRunner{},
-		&uvRunner{},
-		&gradleRunner{},
-		&mavenRunner{},
-	}
-
-	// Try to find exact match - only use the command as-is, no variants
-	for _, runner := range runners {
-		// Use a special version that only checks for exact command match
-		if cmd := findCommandExact(runner, dir, command, r.Args); cmd != nil {
-			cmd.Dir = dir
-			return cmd
-		}
-	}
-
-	return nil
-}
-
-func (r *CommandRunner) FindCommand(dir string) *exec.Cmd {
-	runners := []commandFinder{
-		&miseRunner{},
-		&justRunner{},
-		&makeRunner{},
-		&denoRunner{},
-		&nodePackageRunner{},
-		&cargoRunner{},
-		&goRunner{},
-		&poetryRunner{},
-		&uvRunner{},
-		&gradleRunner{},
-		&mavenRunner{},
-	}
-
-	for _, runner := range runners {
-		if cmd := runner.findCommand(dir, r.Command, r.Args); cmd != nil {
-			cmd.Dir = dir
-			return cmd
-		}
-	}
-
-	return nil
-}
 
 func (r *CommandRunner) ExecuteCommand(cmd *exec.Cmd) error {
 	cmd.Stdin = os.Stdin
@@ -149,28 +106,43 @@ func (r *CommandRunner) ExecuteCommand(cmd *exec.Cmd) error {
 }
 
 func (r *CommandRunner) ListCommands() {
-	dirs := []string{r.CurrentDir}
-	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
-		dirs = append(dirs, r.ProjectRoot)
-	}
-
 	fmt.Println("Available commands for this project:")
 	fmt.Println()
 
 	// Track what we've already shown to avoid duplicates
 	shown := make(map[string]bool)
-
-	// First show commands from current dir, then from project root
-	for i, dir := range dirs {
+	
+	// Build projects for current dir and project root
+	projects := []*Project{}
+	projects = append(projects, ResolveProject(r.CurrentDir))
+	
+	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
+		projects = append(projects, ResolveProject(r.ProjectRoot))
+	}
+	
+	// Show commands from each project
+	for i, project := range projects {
 		if i > 0 {
-			relPath, _ := filepath.Rel(r.CurrentDir, dir)
+			relPath, _ := filepath.Rel(r.CurrentDir, project.Dir)
 			if relPath == "." {
 				continue
 			}
 			fmt.Printf("\nFrom project root (%s):\n", relPath)
 		}
-
-		r.listCommandsInDir(dir, shown)
+		
+		// Show commands from each source
+		for _, source := range project.CommandSources {
+			commands := source.ListCommands()
+			if len(commands) > 0 {
+				fmt.Printf("\n%s commands:\n", source.Name())
+				for cmd, desc := range commands {
+					if !shown[cmd] {
+						fmt.Printf("  %-12s → %s\n", cmd, desc)
+						shown[cmd] = true
+					}
+				}
+			}
+		}
 	}
 
 	// Always show synthesized commands
@@ -193,225 +165,8 @@ func (r *CommandRunner) ListCommands() {
 	fmt.Println("  l  → lint")
 }
 
-func (r *CommandRunner) listCommandsInDir(dir string, shown map[string]bool) {
-	runners := []commandFinder{
-		&miseRunner{},
-		&justRunner{},
-		&makeRunner{},
-		&denoRunner{},
-		&nodePackageRunner{},
-		&cargoRunner{},
-		&goRunner{},
-		&poetryRunner{},
-		&uvRunner{},
-		&gradleRunner{},
-		&mavenRunner{},
-	}
 
-	for _, runner := range runners {
-		if commands := r.getRunnerCommands(runner, dir); len(commands) > 0 {
-			runnerName := getRunnerName(runner)
-			fmt.Printf("\n%s commands:\n", runnerName)
-			for cmd, desc := range commands {
-				if !shown[cmd] {
-					fmt.Printf("  %-12s → %s\n", cmd, desc)
-					shown[cmd] = true
-				}
-			}
-		}
-	}
-}
 
-func getRunnerName(runner commandFinder) string {
-	switch runner.(type) {
-	case *miseRunner:
-		return "mise"
-	case *justRunner:
-		return "just"
-	case *makeRunner:
-		return "make"
-	case *denoRunner:
-		return "Deno"
-	case *nodePackageRunner:
-		return "Node.js"
-	case *cargoRunner:
-		return "Cargo"
-	case *goRunner:
-		return "Go"
-	case *poetryRunner:
-		return "Poetry"
-	case *uvRunner:
-		return "uv"
-	case *gradleRunner:
-		return "Gradle"
-	case *mavenRunner:
-		return "Maven"
-	default:
-		return "Unknown"
-	}
-}
-
-func (r *CommandRunner) getRunnerCommands(runner commandFinder, dir string) map[string]string {
-	commands := make(map[string]string)
-
-	switch runner.(type) {
-	case *miseRunner:
-		if FileExists(filepath.Join(dir, ".mise.toml")) {
-			// Try to list mise commands
-			testCmd := exec.Command("mise", "run", "--list")
-			testCmd.Dir = dir
-			if output, err := testCmd.Output(); err == nil {
-				r.parseMiseCommands(string(output), commands)
-			}
-		}
-	case *justRunner:
-		if FileExists(filepath.Join(dir, "justfile")) || FileExists(filepath.Join(dir, "Justfile")) {
-			testCmd := exec.Command("just", "--list")
-			testCmd.Dir = dir
-			if output, err := testCmd.Output(); err == nil {
-				r.parseJustCommands(string(output), commands)
-			}
-		}
-	case *makeRunner:
-		if FileExists(filepath.Join(dir, "Makefile")) || FileExists(filepath.Join(dir, "makefile")) {
-			r.parseMakefileCommands(dir, commands)
-		}
-	case *nodePackageRunner:
-		if FileExists(filepath.Join(dir, "package.json")) {
-			r.parsePackageJsonCommands(dir, commands)
-		}
-	case *cargoRunner:
-		if FileExists(filepath.Join(dir, "Cargo.toml")) {
-			commands["build"] = "cargo build"
-			commands["run"] = "cargo run"
-			commands["test"] = "cargo test"
-			commands["check"] = "cargo check"
-			commands["format"] = "cargo fmt"
-			commands["lint"] = "cargo clippy"
-			commands["clean"] = "cargo clean"
-		}
-	case *goRunner:
-		if FileExists(filepath.Join(dir, "go.mod")) {
-			commands["build"] = "go build"
-			commands["run"] = "go run ."
-			commands["test"] = "go test ./..."
-			commands["format"] = "go fmt ./..."
-			commands["lint"] = "go vet ./..."
-			commands["clean"] = "go clean"
-		}
-	case *poetryRunner:
-		if FileExists(filepath.Join(dir, "poetry.lock")) || FileExists(filepath.Join(dir, "pyproject.toml")) {
-			commands["install"] = "poetry install"
-			commands["run"] = "poetry run python"
-			commands["test"] = "poetry run pytest"
-			commands["format"] = "poetry run ruff format"
-			commands["lint"] = "poetry run ruff check"
-			commands["typecheck"] = "poetry run pyright"
-		}
-	case *uvRunner:
-		if FileExists(filepath.Join(dir, "pyproject.toml")) {
-			commands["install"] = "uv sync"
-			commands["run"] = "uv run"
-			commands["test"] = "uv run pytest"
-			commands["format"] = "uv run ruff format"
-			commands["lint"] = "uv run ruff check"
-			commands["typecheck"] = "uv run pyright"
-		}
-	}
-
-	return commands
-}
-
-func (r *CommandRunner) parseMiseCommands(output string, commands map[string]string) {
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" && !strings.HasPrefix(line, "Tasks:") {
-			parts := strings.Fields(line)
-			if len(parts) > 0 {
-				cmd := parts[0]
-				commands[cmd] = "mise run " + cmd
-			}
-		}
-	}
-}
-
-func (r *CommandRunner) parseJustCommands(output string, commands map[string]string) {
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" && !strings.HasPrefix(line, "Available") {
-			// just output format: "command   # description"
-			parts := strings.SplitN(line, " ", 2)
-			if len(parts) > 0 {
-				cmd := strings.TrimSpace(parts[0])
-				if cmd != "" {
-					commands[cmd] = "just " + cmd
-				}
-			}
-		}
-	}
-}
-
-func (r *CommandRunner) parseMakefileCommands(dir string, commands map[string]string) {
-	makefiles := []string{"Makefile", "makefile"}
-	for _, mf := range makefiles {
-		path := filepath.Join(dir, mf)
-		if FileExists(path) {
-			file, err := os.Open(path)
-			if err != nil {
-				continue
-			}
-			defer func() {
-				_ = file.Close()
-			}()
-
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				line := scanner.Text()
-				// Look for targets (lines ending with :)
-				if strings.Contains(line, ":") && !strings.HasPrefix(line, "\t") && !strings.HasPrefix(line, " ") {
-					parts := strings.Split(line, ":")
-					if len(parts) > 0 {
-						target := strings.TrimSpace(parts[0])
-						// Skip special targets and variables
-						if !strings.HasPrefix(target, ".") && !strings.Contains(target, "=") && target != "" {
-							commands[target] = "make " + target
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-func (r *CommandRunner) parsePackageJsonCommands(dir string, commands map[string]string) {
-	packageJSON := filepath.Join(dir, "package.json")
-	data, err := os.ReadFile(packageJSON)
-	if err != nil {
-		return
-	}
-
-	var pkg struct {
-		Scripts map[string]string `json:"scripts"`
-	}
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return
-	}
-
-	packageManager := detectPackageManager(dir)
-	if packageManager == "" {
-		packageManager = "npm"
-	}
-
-	for script := range pkg.Scripts {
-		if packageManager == "deno" {
-			commands[script] = "deno task " + script
-		} else {
-			commands[script] = packageManager + " run " + script
-		}
-	}
-}
 
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
