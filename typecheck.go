@@ -17,8 +17,11 @@ func HandleTypecheckCommand(r *CommandRunner) error {
 
 	// First try to find a native typecheck command
 	for _, dir := range dirs {
-		if cmd := r.FindCommand(dir); cmd != nil {
-			return r.ExecuteCommand(cmd)
+		project := ResolveProject(dir)
+		for _, source := range project.CommandSources {
+			if cmd := source.FindCommand("typecheck", r.Args); cmd != nil {
+				return r.ExecuteCommand(cmd)
+			}
 		}
 	}
 
