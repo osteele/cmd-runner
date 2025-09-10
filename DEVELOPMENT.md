@@ -152,36 +152,17 @@ git commit --no-verify -m "message"
 
 ## Project Structure
 
-```
-cmd-runner/
-├── cmd/
-│   └── cmdr/
-│       └── main.go      # CLI entry point
-├── cmdrunner.go         # Main library package (includes command aliasing)
-├── runners.go           # Build system runners
-├── check.go            # Check command implementation
-├── fix.go              # Fix command implementation
-├── typecheck.go        # Typecheck command implementation
-├── cmdrunner_test.go   # Tests for cmdrunner package
-├── runners_test.go     # Tests for runners
-├── lefthook.yml        # Git hooks configuration
-├── .mise.toml          # mise task configuration
-├── go.mod              # Go module definition
-├── go.sum              # Dependency checksums
-├── README.md           # User documentation
-├── DEVELOPMENT.md      # This file
-├── ROADMAP.md          # Future development plans
-├── LICENSE             # MIT License
-└── .gitignore          # Git ignore rules
-```
+- **`README.md`**: Contains the primary user-facing documentation, installation instructions, and usage examples.
+- **`DEVELOPMENT.md`**: Contains detailed instructions for setting up the development environment and running all development tasks (testing, linting, building).
+- **`SPECIFICATION.md`**: Covers the internal design, architecture, and behavior of `cmd-runner`.
+- **`.mise.toml`**: Defines the development tasks (e.g., `test`, `build`, `lint`) and the specific tool versions used in this project.
+- **`cmdrunner.go`**: The core logic for command discovery, aliasing, and execution.
+- **`sources_*.go`**: Files that implement support for different build systems (e.g., `sources_node.go`, `sources_python.go`).
+- **`lefthook.yml`**: Configuration for pre-commit and pre-push git hooks.
 
 ## Command Aliasing
 
-The tool supports multiple levels of command aliasing:
-
-1. **Short aliases**: Single-letter shortcuts (e.g., `f` → `format`, `t` → `test`)
-2. **Standard aliases**: Common variations (e.g., `fmt` → `format`, `dev` → `run`)
-3. **Exact command priority**: If a project has an actual command named `f`, it takes precedence over the alias
+The tool supports multiple levels of command aliasing. For a detailed list of all aliases and the command resolution logic, please see the [Project Specification](SPECIFICATION.md).
 
 ### Adding New Aliases
 
@@ -201,6 +182,21 @@ To add a new command alias, update two places in `cmdrunner.go`:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests and linting
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+## Release Process
+
+1. Update version in code if applicable
+2. Run full test suite
+3. Build binaries for all platforms
+4. Create git tag: `git tag -a v1.0.0 -m "Release v1.0.0"`
+5. Push tag: `git push origin v1.0.0`
+6. Create GitHub release with binaries
+nch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Run tests and linting
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
