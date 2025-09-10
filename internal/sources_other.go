@@ -1,4 +1,4 @@
-package cmdrunner
+package internal
 
 import (
 	"os"
@@ -124,8 +124,8 @@ func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"clean":     {"clean"},
 		"install":   {"mod", "download"},
 		"lint":      {"vet", "./..."},
-		"typecheck": {"build", "-o", "/dev/null"},
-		"tc":        {"build", "-o", "/dev/null"},
+		"typecheck": {"build", "-o", "/dev/null", "./..."},
+		"tc":        {"build", "-o", "/dev/null", "./..."},
 	}
 
 	for _, variant := range GetCommandVariants(command) {
