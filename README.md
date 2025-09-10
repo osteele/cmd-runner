@@ -12,6 +12,40 @@ A smart command runner that finds and executes commands across different build s
 
 **Why?** Working across multiple projects with different tech stacks (Rust/Cargo, Node/npm/bun, Python/uv, Go, etc.) means remembering different commands for the same tasks. Instead of trying to recall whether it's `npm run test`, `cargo test`, `go test`, or `make test`, or wondering whether this Node project uses `npm run test` or `bun test`, simply use `cmdr test` in any project.
 
+## Quick Start
+
+See what commands are available in any project:
+
+```bash
+$ cmdr --list
+Available commands for this project:
+
+npm commands:
+  build        → Build the application
+  test         → Run test suite
+  dev          → Start development server
+  lint         → Run ESLint
+  format       → Format with Prettier
+  typecheck    → Run TypeScript compiler checks
+
+Synthesized commands (provided by cmd-runner):
+  check        → Runs lint, typecheck, and test
+  fix          → Runs format and lint fix
+
+Command aliases:
+  f  → format     t  → test       tc → typecheck
+  r  → run        s  → serve      b  → build
+  l  → lint
+```
+
+Now just run what you need:
+
+```bash
+$ cmdr test     # Runs npm test in this project
+$ cmdr t        # Short alias for test
+$ cmdr check    # Runs lint, typecheck, and test together
+```
+
 ## Example
 
 ```bash
@@ -76,6 +110,8 @@ go install ./cmd/cmdr
 ```bash
 cmdr [OPTIONS] <command> [args...]
 cmdr --list                      # List all available commands for current project
+cmdr --list --all                # Show commands from all sources
+cmdr --list --verbose            # Show full command descriptions
 cmdr --help                      # Show help information
 cmdr --version                   # Show version
 cmdr install-alias [--dry-run]  # Install 'cr' alias to shell config
@@ -83,6 +119,8 @@ cmdr install-alias [--dry-run]  # Install 'cr' alias to shell config
 
 Options:
 - `--list`, `-l` - List all available commands for current project
+  - `--all`, `-a` - Show commands from all sources (not just primary)
+  - `--verbose` - Show full command descriptions without truncation
 - `--version`, `-v` - Show version information
 - `--help`, `-h` - Show help message
 
@@ -107,8 +145,10 @@ cmdr b                # build
 cmdr l                # lint
 
 # Show all available commands
-cmdr --list           # List commands for current project
+cmdr --list           # List commands for current project (primary source only)
 cmdr -l               # Short form of --list
+cmdr --list --all     # Show commands from all sources and directories
+cmdr --list --verbose # Show full descriptions without truncation
 
 # Flags are passed through to commands
 cmdr test --verbose   # Runs test command with --verbose flag
@@ -142,74 +182,11 @@ The list command shows:
 - Available short aliases
 - Synthesized commands provided by cmd-runner
 
-## Supported Commands
-
-| Command | Aliases | Short | Description |
-|---------|---------|-------|-------------|
-| `format` | `fmt` | `f` | Code formatting |
-| `test` | `tests` | `t` | Run tests |
-| `typecheck` | `type-check`, `types` | `tc` | Run type checker |
-| `run` | `dev`, `serve`, `start` | `r` | Run development server or application |
-| `serve` | `dev`, `run`, `start` | `s` | Run server (alias for run) |
-| `build` | - | `b` | Build the project |
-| `lint` | - | `l` | Run linters |
-| `check` | - | - | Run lint, typecheck, and test together |
-| `fix` | - | - | Auto-fix issues |
-| `clean` | - | - | Clean build artifacts |
-| `install` | `setup` | - | Install dependencies |
-
-**Note**: If a project has an actual command named `f`, `t`, etc., it will take precedence over the short alias expansion.
-
-### Smart Command Synthesis
-
-- **check**: If no native `check` command exists, automatically runs `lint`, `typecheck`, and `test` in sequence
-- **fix**: If no native `fix` command exists, automatically runs `format` and `lint --fix`
-- **typecheck**: Errors if the project doesn't support type checking (no TypeScript, Python with pyright/mypy, Rust, or Go)
-
-## Supported Languages & Stacks
-
-### JavaScript/TypeScript
-- **Package Managers**: bun, pnpm, yarn, npm, deno
-- **Type Checking**: TypeScript (`tsc`)
-- **Common Tools**: biome, eslint, prettier
-
-### Python
-- **Package Manager**: uv (with pyproject.toml)
-- **Type Checking**: pyright, mypy
-- **Common Tools**: ruff, pytest
-
-### Rust
-- **Build System**: cargo
-- **Type Checking**: Built-in (`cargo check`)
-- **Common Tools**: clippy, rustfmt
-
-### Go
-- **Build System**: go modules
-- **Type Checking**: Built-in (`go build`)
-- **Common Tools**: go vet, gofmt
-
-### Java/Kotlin
-- **Build Systems**: gradle, maven
-- **Type Checking**: Built-in compilation
-
-## Supported Build Systems
-
-The tool searches for commands in the following order:
-
-1. **mise** - `.mise.toml` (polyglot runtime manager)
-2. **just** - `justfile` or `Justfile` (command runner)
-3. **make** - `Makefile` or `makefile` (classic build tool)
-4. **Node.js** - `package.json` with bun/pnpm/yarn/npm
-5. **Rust** - `Cargo.toml` (cargo)
-6. **Go** - `go.mod` (go modules)
-7. **Python** - `pyproject.toml` with uv
-8. **Java/Kotlin** - `build.gradle[.kts]` (gradle) or `pom.xml` (maven)
-
-## Search Strategy
-
-1. First searches in the current directory
-2. Then searches in the project root (determined by `.jj` or `.git` directory)
-3. Tries command aliases (e.g., `fmt` for `format`, `dev` for `run`)
+Options for `--list`:
+- By default, shows only the primary command source with descriptions truncated to terminal width
+- Use `--all` to see commands from all sources (current directory and project root)
+- Use `--verbose` to see full descriptions without truncation
+- Use `--help` with `--list` to see available options
 
 ## Features
 
@@ -217,6 +194,8 @@ The tool searches for commands in the following order:
 - Searches both current directory and project root
 - Passes through additional arguments to the underlying command
 - Supports all major build systems and package managers
+
+For a detailed explanation of the command discovery logic, aliasing, and supported systems, see the [**Specification**](SPECIFICATION.md).
 
 ## See Also
 
