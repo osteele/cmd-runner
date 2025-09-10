@@ -23,14 +23,19 @@ Features marked with 📦 come from package-script-runner. Features marked with 
 
 ## Features from package-script-runner 📦
 
-### TUI Mode (Terminal User Interface) ⭐📦
-- **Interactive command selection** with arrow keys
-- **Keyboard shortcuts** for common scripts (1-9, letters)
-- **Search/filter** commands with `/` key
-- **Visual script grouping** by phase (Development, Quality, Build, etc.)
-- **Script descriptions** and metadata display
-- **Theme support** (dark/light/no-color)
-- **Emoji indicators** for script types (optional)
+### TUI Mode (Terminal User Interface) ⭐📦 ✅ IMPLEMENTED (2025-01-15)
+- ✅ **Interactive command selection** with single-key shortcuts
+- ✅ **Keyboard shortcuts** for common scripts (t, b, r, f, l, c, x, s)
+- ✅ **Number keys** for additional commands (1-9)
+- ✅ **Type-ahead** support with partial name matching
+- ✅ **Toggle view** between menu and last output with `/` key
+- ✅ **Repeat last command** with `.` key
+- ✅ **Automatic flow** - success returns to menu, failures pause
+- ✅ **Graceful exit** with `q` or Ctrl+C
+- ⬜ **Visual script grouping** by phase (future enhancement)
+- ⬜ **Script descriptions** and metadata display (partial - shows descriptions)
+- ⬜ **Theme support** (future enhancement)
+- ⬜ **Emoji indicators** for script types (future enhancement)
 
 ### Project Management 📦
 - **Save project directories** for quick access
