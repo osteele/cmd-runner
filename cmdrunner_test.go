@@ -143,6 +143,64 @@ func TestFileExists(t *testing.T) {
 	}
 }
 
+func TestIsPrivateCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		command  string
+		expected bool
+	}{
+		{
+			name:     "public command",
+			command:  "build",
+			expected: false,
+		},
+		{
+			name:     "underscore prefix",
+			command:  "_internal",
+			expected: true,
+		},
+		{
+			name:     "dot prefix",
+			command:  ".hidden",
+			expected: true,
+		},
+		{
+			name:     "normal command with underscore",
+			command:  "build_test",
+			expected: false,
+		},
+		{
+			name:     "normal command with dot",
+			command:  "test.js",
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			command:  "",
+			expected: false,
+		},
+		{
+			name:     "just underscore",
+			command:  "_",
+			expected: true,
+		},
+		{
+			name:     "just dot",
+			command:  ".",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPrivateCommand(tt.command)
+			if result != tt.expected {
+				t.Errorf("isPrivateCommand(%q) = %v, expected %v", tt.command, result, tt.expected)
+			}
+		})
+	}
+}
+
 func slicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

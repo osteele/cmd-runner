@@ -170,7 +170,7 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 			additional := make(map[string]CommandInfo)
 
 			for cmd, info := range commands {
-				if !shown[cmd] {
+				if !shown[cmd] && !isPrivateCommand(cmd) {
 					if coreCommands[cmd] {
 						core[cmd] = info
 					} else {
@@ -307,6 +307,12 @@ func sortCommands[T any](commands map[string]T) []string {
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// isPrivateCommand checks if a command should be hidden from listings
+// Commands starting with underscore or dot are considered private/internal
+func isPrivateCommand(name string) bool {
+	return strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".")
 }
 
 func GetCommandVariants(command string) []string {
