@@ -17,7 +17,7 @@ A smart command runner that finds and executes commands across different build s
 See what commands are available in any project:
 
 ```bash
-$ cmdr --list
+$ cmdr
 Available commands for this project:
 
 npm commands:
@@ -37,6 +37,8 @@ Command aliases:
   r  → run        s  → serve      b  → build
   l  → lint
 ```
+
+You can also use `cmdr --list` or `cmdr -l` for the same output with additional options like `--all` to show commands from all sources.
 
 Now just run what you need:
 

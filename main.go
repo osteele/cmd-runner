@@ -13,7 +13,9 @@ const version = "0.1.0"
 
 func showHelp() {
 	fmt.Fprintf(os.Stderr, "cmd-runner %s - Smart command runner for multiple build systems\n\n", version)
-	fmt.Fprintf(os.Stderr, "Usage: cmdr [OPTIONS] <command> [args...]\n")
+	fmt.Fprintf(os.Stderr, "Usage: cmdr [OPTIONS] [command] [args...]\n")
+	fmt.Fprintf(os.Stderr, "\n")
+	fmt.Fprintf(os.Stderr, "When run without arguments, shows available commands (same as --list).\n")
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Options:\n")
 	fmt.Fprintf(os.Stderr, "  --interactive, -i       Launch interactive mode for command selection\n")
@@ -51,91 +53,127 @@ func showVersion() {
 func main() {
 	// Parse arguments
 	if len(os.Args) < 2 {
-		showHelp()
-		os.Exit(1)
-	}
-
-	// Check for interactive mode first
-	for _, arg := range os.Args[1:] {
-		if arg == "--interactive" || arg == "-i" {
-			if err := internal.RunInteractive(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-			os.Exit(0)
+		// No arguments - show command list
+		runner := internal.New("", nil)
+		if err := runner.Init(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error initializing: %v\n", err)
+			os.Exit(1)
 		}
+		runner.ListCommands()
+		os.Exit(0)
 	}
 
-	// Look for the first non-flag argument (the command)
+	preCommandFlags := []string{}
 	command := ""
 	commandIndex := -1
 
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
-		if !strings.HasPrefix(arg, "-") {
+		if arg == "--" {
+			if i+1 < len(os.Args) {
+				command = os.Args[i+1]
+				commandIndex = i + 1
+			}
+			break
+		}
+		if strings.HasPrefix(arg, "-") && command == "" {
+			preCommandFlags = append(preCommandFlags, arg)
+			continue
+		}
+		if command == "" {
 			command = arg
 			commandIndex = i
-			break
+		}
+		break
+	}
+
+	listRequested := false
+	for _, flag := range preCommandFlags {
+		if flag == "--list" || flag == "-l" || flag == "--commands" {
+			listRequested = true
 		}
 	}
 
-	// If no command found, process flags
-	if command == "" {
-		// Check for standalone flags
-		for _, arg := range os.Args[1:] {
-			switch arg {
-			case "--help", "-h":
-				showHelp()
-				os.Exit(0)
-			case "--version", "-v":
-				showVersion()
-				os.Exit(0)
-			case "--list", "-l", "--commands":
-				// Check if help is requested for list command
-				for _, a := range os.Args[1:] {
-					if a == "--help" || a == "-h" {
-						fmt.Fprintf(os.Stderr, "Usage: cmdr --list [OPTIONS]\n")
-						fmt.Fprintf(os.Stderr, "\n")
-						fmt.Fprintf(os.Stderr, "List available commands for the current project.\n")
-						fmt.Fprintf(os.Stderr, "\n")
-						fmt.Fprintf(os.Stderr, "Options:\n")
-						fmt.Fprintf(os.Stderr, "  --all, -a      Show commands from all sources (not just primary)\n")
-						fmt.Fprintf(os.Stderr, "  --verbose      Show full command descriptions (no truncation)\n")
-						fmt.Fprintf(os.Stderr, "  --help, -h     Show this help message\n")
-						fmt.Fprintf(os.Stderr, "\n")
-						fmt.Fprintf(os.Stderr, "By default, only commands from the primary source (e.g., mise, just, make)\n")
-						fmt.Fprintf(os.Stderr, "are shown with descriptions truncated to fit the terminal width.\n")
-						os.Exit(0)
-					}
-				}
+	listAll := false
+	verbose := false
+	showHelpFlag := false
 
-				runner := internal.New("", nil)
-				if err := runner.Init(); err != nil {
-					fmt.Fprintf(os.Stderr, "Error initializing: %v\n", err)
-					os.Exit(1)
-				}
-				// Check for additional list options
-				listAll := false
-				verbose := false
-				for _, a := range os.Args[1:] {
-					if a == "--all" || a == "-a" || a == "--list-all" {
-						listAll = true
-					}
-					if a == "--verbose" {
-						verbose = true
-					}
-				}
-				runner.ListCommandsWithOptions(listAll, verbose)
-				os.Exit(0)
-			default:
-				if strings.HasPrefix(arg, "-") {
-					fmt.Fprintf(os.Stderr, "Unknown option: %s\n", arg)
-					fmt.Fprintf(os.Stderr, "Try 'cmdr --help' for more information.\n")
-					os.Exit(1)
-				}
+	for _, flag := range preCommandFlags {
+		switch flag {
+		case "--interactive", "-i":
+			if err := internal.RunInteractive(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
 			}
+			os.Exit(0)
+		case "--help", "-h":
+			showHelpFlag = true
+		case "--version", "-v":
+			showVersion()
+			os.Exit(0)
+		case "--list", "-l", "--commands":
+			// processed after loop
+		case "--all", "-a", "--list-all":
+			if !listRequested {
+				fmt.Fprintf(os.Stderr, "Unknown option: %s\n", flag)
+				fmt.Fprintf(os.Stderr, "Try 'cmdr --help' for more information.\n")
+				os.Exit(1)
+			}
+			listAll = true
+		case "--verbose":
+			if !listRequested {
+				fmt.Fprintf(os.Stderr, "Unknown option: %s\n", flag)
+				fmt.Fprintf(os.Stderr, "Try 'cmdr --help' for more information.\n")
+				os.Exit(1)
+			}
+			verbose = true
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown option: %s\n", flag)
+			fmt.Fprintf(os.Stderr, "Try 'cmdr --help' for more information.\n")
+			os.Exit(1)
 		}
-		// No command and no recognized flags
+	}
+
+	if showHelpFlag && !listRequested {
+		showHelp()
+		os.Exit(0)
+	}
+
+	if listRequested && command == "" {
+		if showHelpFlag {
+			fmt.Fprintf(os.Stderr, "Usage: cmdr --list [OPTIONS]\n")
+			fmt.Fprintf(os.Stderr, "\n")
+			fmt.Fprintf(os.Stderr, "List available commands for the current project.\n")
+			fmt.Fprintf(os.Stderr, "\n")
+			fmt.Fprintf(os.Stderr, "Options:\n")
+			fmt.Fprintf(os.Stderr, "  --all, -a      Show commands from all sources (not just primary)\n")
+			fmt.Fprintf(os.Stderr, "  --verbose      Show full command descriptions (no truncation)\n")
+			fmt.Fprintf(os.Stderr, "  --help, -h     Show this help message\n")
+			fmt.Fprintf(os.Stderr, "\n")
+			fmt.Fprintf(os.Stderr, "By default, only commands from the primary source (e.g., mise, just, make)\n")
+			fmt.Fprintf(os.Stderr, "are shown with descriptions truncated to fit the terminal width.\n")
+			os.Exit(0)
+		}
+
+		runner := internal.New("", nil)
+		if err := runner.Init(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error initializing: %v\n", err)
+			os.Exit(1)
+		}
+		runner.ListCommandsWithOptions(listAll, verbose)
+		os.Exit(0)
+	}
+
+	if listRequested && command != "" {
+		fmt.Fprintf(os.Stderr, "The --list flag must appear without a command.\n")
+		os.Exit(1)
+	}
+
+	if command == "" {
+		if showHelpFlag {
+			showHelp()
+			os.Exit(0)
+		}
 		showHelp()
 		os.Exit(1)
 	}
