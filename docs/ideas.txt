@@ -1,0 +1,171 @@
+# cmd-runner Ideas
+
+This document contains experimental ideas and "nice-to-have" features that aren't
+concrete enough for the ROADMAP yet. These are brainstorming notes for potential
+future enhancements.
+
+Feel free to discuss these ideas in GitHub issues!
+
+See [../ROADMAP.md](../ROADMAP.md) for planned features.
+
+## Interactive Mode Enhancements
+
+- Live search/filter as you type (fuzzy matching like fzf)
+- Command history with up/down arrows in interactive mode
+- Show command execution time after completion
+- Color-coded output based on exit status
+- Split pane view: menu on left, output on right
+- Mouse support for clicking on commands
+- Customizable shortcuts (user-defined key mappings)
+- Show command frequency/usage statistics
+- "Favorite" commands that always appear at top
+- Command groups/categories that can be expanded/collapsed
+
+## Smart Command Detection
+
+- Auto-detect new commands when files change
+- Learn from command history what variations user prefers
+- Suggest commands based on recent file changes (e.g., "You modified tests, run test?")
+- Detect command dependencies (e.g., "build before test")
+- Warn when running commands in wrong directory
+- Detect and suggest fixing common typos in typed commands
+
+## Command Execution Features
+
+- Parallel command execution with nice output merging
+- Command queueing (queue up multiple commands to run sequentially)
+- Background command execution with notification when complete
+- Save command output to file automatically
+- Pipe command output to other tools (grep, less, etc.)
+- Macro recording: record a sequence of commands and replay
+- Conditional execution based on previous command success/failure
+- Time-based scheduling (run command at specific time or interval)
+
+## Integration Ideas
+
+- Shell prompt integration showing available commands
+- Discord/Slack bot for running commands remotely
+- Web UI for remote command execution
+- Mobile app for monitoring long-running commands
+- Integration with terminal multiplexers (tmux/screen)
+- Git hooks integration (auto-run tests before commit)
+- Detect and run git hooks from .git/hooks or .husky
+- Detect and run GitHub Actions locally via act (nektos/act)
+- CI/CD integration (export commands as GitHub Actions)
+
+## AI/Smart Features
+
+- Command suggestion based on context and history
+- Auto-fix suggestions when commands fail
+- Learn project-specific patterns and preferences
+- Predict next command based on workflow patterns
+- Generate command documentation from usage patterns
+
+## Visualization
+
+- Dependency graph of commands
+- Execution timeline/history visualization
+- Resource usage graphs (CPU, memory during execution)
+- Success/failure rate charts
+- Command relationship mapping
+- Project health dashboard
+
+## Quality of Life
+
+- Undo last command (if we are using jj or autocommit)
+- Dry-run mode to preview what would be executed
+- Command aliasing at runtime (not just in config)
+- Bookmark specific command combinations
+- Export/import command configurations between projects
+- Command templates with variable substitution
+- Auto-update notification for cmd-runner itself
+- Contextual help based on current project type
+
+## Performance & Optimization
+
+- Predictive command pre-loading
+- Distributed execution across multiple machines
+- Caching of command outputs for fast re-display
+- Incremental execution (only run what changed)
+- Smart test selection based on code changes
+- Resource-aware execution (delay if system busy)
+
+## Windows/Cross-Platform Support
+
+### .NET Development
+- dotnet CLI support
+- MSBuild detection
+- NuGet package management
+- Visual Studio project detection
+
+### Windows-Specific Features
+- PowerShell completion support
+- Windows Terminal integration
+- cmd.exe batch file support
+- Cross-platform terminal compatibility
+
+## Command History and Intelligence
+
+- Track frequently used commands
+- Suggest recent commands
+- Per-project command history
+- Smart command suggestions based on context
+
+## Configuration System
+
+### Project Configuration
+- `.cmdrunner.yml` or `.cmdrunner.toml` for project-specific settings
+- Custom command aliases
+- Command chains/sequences
+- Environment-specific commands
+
+### Global Configuration
+- User preferences (~/.config/cmdrunner/)
+- Custom command templates
+- Default flags for commands
+
+## Advanced Features
+
+### Parallel Execution
+- Run multiple commands concurrently
+- Command dependencies and ordering
+- Output aggregation
+
+### Command Composition
+- Chain commands with operators (&&, ||, ;)
+- Pipe output between commands
+- Conditional execution
+
+### Environment Management
+- Automatic environment variable loading (.env files)
+- Environment-specific command variants
+- Virtual environment activation
+
+## Enhanced Command Discovery
+
+### Smart Pattern Matching
+- Detect common script patterns across different tools
+- Support for tool-specific conventions (e.g., "build:prod" vs "build-prod")
+- Context-aware command selection based on project type
+
+### Custom Script Parsing
+- Parse pyproject.toml [tool.scripts] sections
+- Parse Makefile includes and recursive makefiles
+- Support for Taskfile.yml (Task runner)
+- Parse Gradle/Maven custom tasks
+
+## Enhanced Script Discovery
+
+- Script metadata from package files
+- Custom script descriptions
+- Script dependencies and relationships
+- Hidden/internal script filtering
+- Priority ordering for common scripts
+
+## Notes
+
+These ideas range from practical to playful. Not all may align with cmd-runner's
+philosophy of simplicity. This list serves as a creative parking lot for features
+that might inspire future development or spark community contributions.
+
+Feel free to discuss these ideas in GitHub issues!

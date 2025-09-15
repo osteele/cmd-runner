@@ -4,6 +4,8 @@ This document outlines potential future enhancements for cmd-runner by cannibali
 
 Features marked with 📦 come from package-script-runner. Features marked with ⭐ are high-priority.
 
+For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
+
 ## Command Execution Architecture ⭐
 
 ### Separate Planning and Execution Phases
@@ -44,53 +46,7 @@ Features marked with 📦 come from package-script-runner. Features marked with 
 - **Recent projects** list
 - **Multi-project commands** (run same command in multiple projects)
 
-### Configuration System 📦
-- **Global config** (~/.cmdrunner.toml or ~/.config/cmdrunner/config.toml)
-- **Project config** (.cmdrunner.toml in project root)
-- **Settings include**:
-  - Theme preferences
-  - Default flags
-  - Custom aliases
-  - Project bookmarks
-  - Emoji display preferences
-
-### Enhanced Script Discovery 📦
-- **Script metadata** from package files
-- **Custom script descriptions**
-- **Script dependencies** and relationships
-- **Hidden/internal script filtering**
-- **Priority ordering** for common scripts
-
-## Script Type Detection System ⭐📦
-
-Add a script categorization system to better understand and organize commands (from package-script-runner):
-
-### Script Types
-- **Development**: Run, Generate, Migration
-- **Quality**: Test, Lint, TypeCheck, Format, Audit
-- **Build**: Clean, Build, BuildDev, BuildProd
-- **Dependencies**: Install, Update, Lock
-- **Release**: Version, Publish, Deploy, DeployStaging, DeployProd
-
-### Implementation
-- Add ScriptType enumeration
-- Implement pattern-based type detection
-- Group commands by phase (Development, Quality, Build, Dependencies, Release)
-- Use script types to provide better command suggestions
-- Display with emojis/icons in TUI mode
-
-## Enhanced Command Discovery 📦
-
-### Smart Pattern Matching
-- Detect common script patterns across different tools
-- Support for tool-specific conventions (e.g., "build:prod" vs "build-prod")
-- Context-aware command selection based on project type
-
-### Custom Script Parsing
-- Parse pyproject.toml [tool.scripts] sections
-- Parse Makefile includes and recursive makefiles
-- Support for Taskfile.yml (Task runner)
-- Parse Gradle/Maven custom tasks
+#
 
 ## Watch Mode Support ⭐
 
@@ -131,11 +87,6 @@ Add a script categorization system to better understand and organize commands (f
 - "l" → "lint"
 - "w" → "watch"
 
-### Smart Command Resolution
-- "ci" → appropriate install command for CI environments
-- "precommit" → run lint, format, and test
-- "all" → run common quality checks
-
 ## Additional Package Managers
 
 ### Ruby
@@ -149,47 +100,8 @@ Add a script categorization system to better understand and organize commands (f
 ### Elixir
 - Mix support (mix.exs)
 
-### .NET
-- dotnet CLI support
-- MSBuild detection
 
-## Command History and Intelligence
 
-### Command History
-- Track frequently used commands
-- Suggest recent commands
-- Per-project command history
-- Smart command suggestions based on context
-
-## Additional Configuration Features
-
-### Project Configuration
-- `.cmdrunner.yml` or `.cmdrunner.toml` for project-specific settings
-- Custom command aliases
-- Command chains/sequences
-- Environment-specific commands
-
-### Global Configuration
-- User preferences (~/.config/cmdrunner/)
-- Custom command templates
-- Default flags for commands
-
-## Advanced Features
-
-### Parallel Execution
-- Run multiple commands concurrently
-- Command dependencies and ordering
-- Output aggregation
-
-### Command Composition
-- Chain commands with operators (&&, ||, ;)
-- Pipe output between commands
-- Conditional execution
-
-### Environment Management
-- Automatic environment variable loading (.env files)
-- Environment-specific command variants
-- Virtual environment activation
 
 ## Developer Experience
 
@@ -207,7 +119,6 @@ Add a script categorization system to better understand and organize commands (f
 - Bash completion support
 - Zsh completion support
 - Fish completion support
-- PowerShell completion support
 
 ## Performance Optimizations
 
@@ -253,7 +164,6 @@ These features from package-script-runner could be considered for future phases:
 - **NO_COLOR** environment variable support
 - **Accessibility features** for screen readers
 - **Terminal detection** for appropriate UI selection
-- **Cross-platform** terminal compatibility
 
 ## Implementation Priority
 
