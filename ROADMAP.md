@@ -110,6 +110,9 @@ For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 - Explain why a command wasn't found
 - Provide setup instructions for missing tools
 
+### Python Type Checking
+- Improve pyright/mypy fallback so synthesized `typecheck` uses `poetry run`/`uv run`
+
 ### Documentation Generation
 - Auto-generate command documentation
 - Export available commands as markdown

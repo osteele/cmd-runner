@@ -155,6 +155,29 @@ func (r *CommandRunner) hasCommand(command string) bool {
 	return false
 }
 
+// hasListedCommand reports whether any source explicitly lists one of the
+// provided command names. This ignores synthesized fallbacks that don't appear
+// in the source listings.
+func (r *CommandRunner) hasListedCommand(names ...string) bool {
+	projects := []*Project{ResolveProject(r.CurrentDir)}
+	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
+		projects = append(projects, ResolveProject(r.ProjectRoot))
+	}
+
+	for _, project := range projects {
+		for _, source := range project.CommandSources {
+			commands := source.ListCommands()
+			for _, name := range names {
+				if _, ok := commands[name]; ok {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 // hasTypecheckCapability checks if the project supports typechecking
 func (r *CommandRunner) hasTypecheckCapability() bool {
 	dirs := []string{r.CurrentDir}

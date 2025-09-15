@@ -137,6 +137,7 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 	}
 
 	sourcesShown := 0
+	hasExplicitTypecheck := r.hasListedCommand("typecheck", "tc")
 
 	// Show commands from each project
 	for i, project := range projects {
@@ -229,9 +230,13 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 
 	synthToShow := make(map[string]CommandInfo)
 	for cmd, info := range synth {
-		if !shown[cmd] {
-			synthToShow[cmd] = info
+		if shown[cmd] {
+			continue
 		}
+		if cmd == "typecheck" && !hasExplicitTypecheck {
+			continue
+		}
+		synthToShow[cmd] = info
 	}
 
 	if len(synthToShow) > 0 {

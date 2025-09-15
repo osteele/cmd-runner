@@ -25,6 +25,10 @@ func HandleTypecheckCommand(r *CommandRunner) error {
 		}
 	}
 
+	if !r.hasListedCommand("typecheck", "tc") {
+		return fmt.Errorf("no typecheck command found")
+	}
+
 	// Check if this project type supports typechecking
 	if !r.hasTypecheckCapability() {
 		return fmt.Errorf("no typecheck command or type checking capability found for this project")
