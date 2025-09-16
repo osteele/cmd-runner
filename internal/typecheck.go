@@ -25,10 +25,6 @@ func HandleTypecheckCommand(r *CommandRunner) error {
 		}
 	}
 
-	if !r.hasListedCommand("typecheck", "tc") {
-		return fmt.Errorf("no typecheck command found")
-	}
-
 	// Check if this project type supports typechecking
 	if !r.hasTypecheckCapability() {
 		return fmt.Errorf("no typecheck command or type checking capability found for this project")
@@ -63,26 +59,47 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 			data, _ := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
 			content := string(data)
 
-			var cmd *CommandRunner
-			if strings.Contains(content, "pyright") {
-				cmd = &CommandRunner{
-					Command:     "pyright",
-					Args:        r.Args,
-					CurrentDir:  r.CurrentDir,
-					ProjectRoot: r.ProjectRoot,
-				}
-			} else if strings.Contains(content, "mypy") {
-				cmd = &CommandRunner{
-					Command:     "mypy",
-					Args:        append([]string{"."}, r.Args...),
-					CurrentDir:  r.CurrentDir,
-					ProjectRoot: r.ProjectRoot,
+			// Detect if we have a Python package manager
+			project := ResolveProject(dir)
+			var packageManager string
+			for _, source := range project.CommandSources {
+				switch source.Name() {
+				case "uv", "Poetry":
+					packageManager = source.Name()
 				}
 			}
 
-			if cmd != nil {
-				fmt.Fprintf(os.Stderr, "Running typecheck using %s...\n", cmd.Command)
-				return cmd.Run()
+			var execCmd *exec.Cmd
+			if strings.Contains(content, "pyright") {
+				if packageManager == "uv" {
+					cmdArgs := append([]string{"run", "pyright"}, r.Args...)
+					execCmd = exec.Command("uv", cmdArgs...)
+				} else if packageManager == "Poetry" {
+					cmdArgs := append([]string{"run", "pyright"}, r.Args...)
+					execCmd = exec.Command("poetry", cmdArgs...)
+				} else {
+					// Run pyright directly
+					execCmd = exec.Command("pyright", r.Args...)
+				}
+				fmt.Fprintf(os.Stderr, "Running typecheck using pyright...\n")
+			} else if strings.Contains(content, "mypy") {
+				if packageManager == "uv" {
+					cmdArgs := append([]string{"run", "mypy", "."}, r.Args...)
+					execCmd = exec.Command("uv", cmdArgs...)
+				} else if packageManager == "Poetry" {
+					cmdArgs := append([]string{"run", "mypy", "."}, r.Args...)
+					execCmd = exec.Command("poetry", cmdArgs...)
+				} else {
+					// Run mypy directly
+					cmdArgs := append([]string{"."}, r.Args...)
+					execCmd = exec.Command("mypy", cmdArgs...)
+				}
+				fmt.Fprintf(os.Stderr, "Running typecheck using mypy...\n")
+			}
+
+			if execCmd != nil {
+				execCmd.Dir = dir
+				return r.ExecuteCommand(execCmd)
 			}
 		}
 
