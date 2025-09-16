@@ -9,11 +9,11 @@ import (
 
 // InteractiveSession manages the interactive mode state
 type InteractiveSession struct {
-	runner          *CommandRunner
-	terminal        *TerminalManager
-	lastCommand     string
-	lastExitCode    int
-	viewingOutput   bool
+	runner            *CommandRunner
+	terminal          *TerminalManager
+	lastCommand       string
+	lastExitCode      int
+	viewingOutput     bool
 	availableCommands map[string]CommandInfo
 	commandShortcuts  map[rune]string
 	numberCommands    []string
@@ -143,7 +143,10 @@ func (s *InteractiveSession) showMenu() error {
 	// Show common commands with shortcuts
 	if len(s.commandShortcuts) > 0 {
 		fmt.Println("Common:")
-		commonCmds := []struct{key rune; cmd string}{
+		commonCmds := []struct {
+			key rune
+			cmd string
+		}{
 			{'t', "test"}, {'b', "build"}, {'r', "run"},
 			{'f', "format"}, {'l', "lint"}, {'c', "check"},
 			{'x', "fix"}, {'s', "serve"},
