@@ -49,7 +49,9 @@ else
     mkdir -p ~/.local/bin
     cp cmdr ~/.local/bin/cmdr
     echo "Installed to ~/.local/bin/cmdr"
-    echo "Make sure ~/.local/bin is in your PATH"
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        echo "Make sure ~/.local/bin is in your PATH"
+    fi
 fi
 
 rm cmdr

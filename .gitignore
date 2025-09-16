@@ -21,6 +21,10 @@ go.work.sum
 # Dependency directories
 vendor/
 
+# Go cache directories
+.gocache
+.gomodcache
+
 # IDE directories
 .idea/
 .vscode/
