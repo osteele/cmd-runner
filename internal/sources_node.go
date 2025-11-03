@@ -56,9 +56,37 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 	// Special handling for typecheck in TypeScript projects
 	if !scriptExists && command == "typecheck" {
 		if FileExists(filepath.Join(n.dir, "tsconfig.json")) {
-			// Use tsc for TypeScript type checking
-			cmdArgs := append([]string{"run", "tsc", "--noEmit"}, args...)
-			cmd := exec.Command(n.packageManager, cmdArgs...)
+			// Use tsc for TypeScript type checking with appropriate package manager syntax
+			var cmdName string
+			var cmdArgs []string
+
+			switch n.packageManager {
+			case "npm":
+				// npm requires npx to run node_modules/.bin executables
+				cmdName = "npx"
+				cmdArgs = append([]string{"tsc", "--noEmit"}, args...)
+			case "pnpm":
+				// pnpm exec is the equivalent of npx
+				cmdName = "pnpm"
+				cmdArgs = append([]string{"exec", "tsc", "--noEmit"}, args...)
+			case "yarn":
+				// yarn run works for node_modules/.bin executables
+				cmdName = "yarn"
+				cmdArgs = append([]string{"run", "tsc", "--noEmit"}, args...)
+			case "bun":
+				// bun run works for node_modules/.bin executables
+				cmdName = "bun"
+				cmdArgs = append([]string{"run", "tsc", "--noEmit"}, args...)
+			case "deno":
+				// Deno projects should use "deno check" instead - skip tsc
+				return nil
+			default:
+				// Fallback: try npx
+				cmdName = "npx"
+				cmdArgs = append([]string{"tsc", "--noEmit"}, args...)
+			}
+
+			cmd := exec.Command(cmdName, cmdArgs...)
 			cmd.Dir = n.dir
 			return cmd
 		}

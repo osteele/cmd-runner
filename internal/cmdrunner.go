@@ -146,10 +146,11 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 			if relPath == "." {
 				continue
 			}
-			if showAll {
+			// If showing all sources, or if current dir had no commands, show project root
+			if showAll || sourcesShown == 0 {
 				fmt.Printf("\nFrom project root (%s):\n", relPath)
 			} else {
-				// Skip project root if not showing all
+				// Skip project root if we already showed commands from current dir
 				continue
 			}
 		}
@@ -233,8 +234,11 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 		if shown[cmd] {
 			continue
 		}
-		if cmd == "typecheck" && !hasExplicitTypecheck {
-			continue
+		// Show synthesized typecheck only when there's no explicit one AND project supports it
+		if cmd == "typecheck" {
+			if hasExplicitTypecheck || !r.hasTypecheckCapability() {
+				continue
+			}
 		}
 		synthToShow[cmd] = info
 	}

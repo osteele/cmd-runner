@@ -71,25 +71,27 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 
 			var execCmd *exec.Cmd
 			if strings.Contains(content, "pyright") {
-				if packageManager == "uv" {
+				switch packageManager {
+				case "uv":
 					cmdArgs := append([]string{"run", "pyright"}, r.Args...)
 					execCmd = exec.Command("uv", cmdArgs...)
-				} else if packageManager == "Poetry" {
+				case "Poetry":
 					cmdArgs := append([]string{"run", "pyright"}, r.Args...)
 					execCmd = exec.Command("poetry", cmdArgs...)
-				} else {
+				default:
 					// Run pyright directly
 					execCmd = exec.Command("pyright", r.Args...)
 				}
 				fmt.Fprintf(os.Stderr, "Running typecheck using pyright...\n")
 			} else if strings.Contains(content, "mypy") {
-				if packageManager == "uv" {
+				switch packageManager {
+				case "uv":
 					cmdArgs := append([]string{"run", "mypy", "."}, r.Args...)
 					execCmd = exec.Command("uv", cmdArgs...)
-				} else if packageManager == "Poetry" {
+				case "Poetry":
 					cmdArgs := append([]string{"run", "mypy", "."}, r.Args...)
 					execCmd = exec.Command("poetry", cmdArgs...)
-				} else {
+				default:
 					// Run mypy directly
 					cmdArgs := append([]string{"."}, r.Args...)
 					execCmd = exec.Command("mypy", cmdArgs...)
@@ -131,10 +133,37 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 
 // createTypescriptCheckCommand creates a TypeScript check command
 func (r *CommandRunner) createTypescriptCheckCommand(dir string, packageManager string) *exec.Cmd {
-	// Try to use tsc directly
-	args := []string{"run", "tsc", "--noEmit"}
-	args = append(args, r.Args...)
-	cmd := exec.Command(packageManager, args...)
+	var args []string
+	var cmdName string
+
+	switch packageManager {
+	case "npm":
+		// npm requires npx to run node_modules/.bin executables
+		cmdName = "npx"
+		args = append([]string{"tsc", "--noEmit"}, r.Args...)
+	case "pnpm":
+		// pnpm exec is the equivalent of npx
+		cmdName = "pnpm"
+		args = append([]string{"exec", "tsc", "--noEmit"}, r.Args...)
+	case "yarn":
+		// yarn run works for node_modules/.bin executables
+		cmdName = "yarn"
+		args = append([]string{"run", "tsc", "--noEmit"}, r.Args...)
+	case "bun":
+		// bun run works for node_modules/.bin executables
+		cmdName = "bun"
+		args = append([]string{"run", "tsc", "--noEmit"}, r.Args...)
+	case "deno":
+		// Deno has built-in type checking via "deno check"
+		// Skip tsc entirely for Deno projects
+		return nil
+	default:
+		// Fallback: try npx
+		cmdName = "npx"
+		args = append([]string{"tsc", "--noEmit"}, r.Args...)
+	}
+
+	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = dir
 	return cmd
 }

@@ -199,7 +199,9 @@ func (s *InteractiveSession) showMenu() error {
 	if err := s.terminal.SetRawMode(); err != nil {
 		return err
 	}
-	defer s.terminal.RestoreMode()
+	defer func() {
+		_ = s.terminal.RestoreMode()
+	}()
 
 	key, err := s.terminal.ReadKey()
 	if err != nil {
@@ -240,7 +242,7 @@ func (s *InteractiveSession) showMenu() error {
 		}
 
 		// Otherwise, enter type mode
-		s.terminal.RestoreMode()
+		_ = s.terminal.RestoreMode()
 		return s.typeMode(key)
 	}
 
@@ -260,7 +262,9 @@ func (s *InteractiveSession) showOutputView() error {
 	if err := s.terminal.SetRawMode(); err != nil {
 		return err
 	}
-	defer s.terminal.RestoreMode()
+	defer func() {
+		_ = s.terminal.RestoreMode()
+	}()
 
 	key, err := s.terminal.ReadKey()
 	if err != nil {
@@ -288,7 +292,7 @@ func (s *InteractiveSession) typeMode(firstKey rune) error {
 	// Read the rest of the command name
 	input := string(firstKey)
 	var line string
-	fmt.Scanln(&line)
+	_, _ = fmt.Scanln(&line)
 	input += line
 
 	input = strings.TrimSpace(input)
@@ -314,15 +318,15 @@ func (s *InteractiveSession) typeMode(firstKey rune) error {
 	} else if len(matches) > 1 {
 		fmt.Printf("\nMultiple matches found: %s\n", strings.Join(matches, ", "))
 		fmt.Println("Press any key to continue...")
-		s.terminal.SetRawMode()
-		s.terminal.ReadKey()
-		s.terminal.RestoreMode()
+		_ = s.terminal.SetRawMode()
+		_, _ = s.terminal.ReadKey()
+		_ = s.terminal.RestoreMode()
 	} else {
 		fmt.Printf("\nCommand '%s' not found\n", input)
 		fmt.Println("Press any key to continue...")
-		s.terminal.SetRawMode()
-		s.terminal.ReadKey()
-		s.terminal.RestoreMode()
+		_ = s.terminal.SetRawMode()
+		_, _ = s.terminal.ReadKey()
+		_ = s.terminal.RestoreMode()
 	}
 
 	return nil
@@ -330,7 +334,7 @@ func (s *InteractiveSession) typeMode(firstKey rune) error {
 
 // runCommand executes a command and returns to menu
 func (s *InteractiveSession) runCommand(command string) error {
-	s.terminal.RestoreMode()
+	_ = s.terminal.RestoreMode()
 
 	fmt.Println()
 	fmt.Println("─────────────────────────────────────")
@@ -368,9 +372,9 @@ func (s *InteractiveSession) runCommand(command string) error {
 		fmt.Println("Press any key to continue...")
 
 		// Wait for keypress on failure
-		s.terminal.SetRawMode()
-		s.terminal.ReadKey()
-		s.terminal.RestoreMode()
+		_ = s.terminal.SetRawMode()
+		_, _ = s.terminal.ReadKey()
+		_ = s.terminal.RestoreMode()
 	}
 
 	return nil
@@ -378,7 +382,7 @@ func (s *InteractiveSession) runCommand(command string) error {
 
 // showHelp displays help information
 func (s *InteractiveSession) showHelp() {
-	s.terminal.RestoreMode()
+	_ = s.terminal.RestoreMode()
 
 	fmt.Println("\nInteractive Mode Help")
 	fmt.Println("─────────────────────────────────────")
@@ -399,13 +403,13 @@ func (s *InteractiveSession) showHelp() {
 	fmt.Println()
 	fmt.Println("Press any key to continue...")
 
-	s.terminal.SetRawMode()
-	s.terminal.ReadKey()
-	s.terminal.RestoreMode()
+	_ = s.terminal.SetRawMode()
+	_, _ = s.terminal.ReadKey()
+	_ = s.terminal.RestoreMode()
 }
 
 // cleanup restores terminal state
 func (s *InteractiveSession) cleanup() {
-	s.terminal.RestoreMode()
+	_ = s.terminal.RestoreMode()
 	fmt.Println("\nGoodbye!")
 }
