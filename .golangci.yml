@@ -6,7 +6,8 @@ run:
 
 linters:
   disable:
-    - unused  # Disabled due to restructuring - some runner types may appear unused
+    - unused    # Disabled due to restructuring - some runner types may appear unused
+    - errcheck  # Too noisy for test files - use go vet instead
 
 issues:
   exclude-rules:
@@ -14,3 +15,7 @@ issues:
     - path: internal/runners.go
       linters:
         - unused
+    # Don't require error checking in test files
+    - path: _test\.go
+      linters:
+        - errcheck

@@ -16,6 +16,7 @@ For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 - ✅ **Removed dead code** - Deleted 124 lines of unused `findCommandExact` functions
 - ✅ **Consolidated runner abstractions** - Removed duplicate `*runner` types in favor of CommandSource interface (saved 551 lines)
 - ✅ **Fixed typecheck synthesis bugs** - Python typecheck now properly executes via package managers or directly
+- ⬜ **Consolidate TypeScript typecheck synthesis** - Currently duplicated in sources_node.go and typecheck.go. Options: (A) centralize in typecheck.go for consistency with Python/Rust/Go, (B) extract shared helper function, or (C) keep Node sources "smart" about typecheck. Recommended: Option A or B for better maintainability.
 
 ## Command Execution Architecture ⭐
 
