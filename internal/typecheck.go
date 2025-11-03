@@ -106,19 +106,22 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 		// Rust projects - use cargo check
 		if FileExists(filepath.Join(dir, "Cargo.toml")) {
 			fmt.Fprintf(os.Stderr, "Running typecheck using cargo check...\n")
-			// Find cargo runner and execute
-			cargoRunner := &cargoRunner{}
-			if cargoCmd := cargoRunner.findCommand(dir, "typecheck", r.Args); cargoCmd != nil {
-				return r.ExecuteCommand(cargoCmd)
+			project := ResolveProject(dir)
+			if cargoSource := findSourceByName(project.CommandSources, "Cargo"); cargoSource != nil {
+				if cargoCmd := cargoSource.FindCommand("typecheck", r.Args); cargoCmd != nil {
+					return r.ExecuteCommand(cargoCmd)
+				}
 			}
 		}
 
 		// Go projects - use go build
 		if FileExists(filepath.Join(dir, "go.mod")) {
 			fmt.Fprintf(os.Stderr, "Running typecheck using go build...\n")
-			goRunner := &goRunner{}
-			if goCmd := goRunner.findCommand(dir, "typecheck", r.Args); goCmd != nil {
-				return r.ExecuteCommand(goCmd)
+			project := ResolveProject(dir)
+			if goSource := findSourceByName(project.CommandSources, "Go"); goSource != nil {
+				if goCmd := goSource.FindCommand("typecheck", r.Args); goCmd != nil {
+					return r.ExecuteCommand(goCmd)
+				}
 			}
 		}
 	}
