@@ -6,6 +6,17 @@ Features marked with 📦 come from package-script-runner. Features marked with 
 
 For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 
+## Recent Completions (January 2025)
+
+### Architecture & Code Quality
+- ✅ **Fixed string-matching bugs in command discovery** - Replaced unsafe `strings.Contains()` with exact map lookups
+- ✅ **Implemented command discovery caching** - Added thread-safe cache to eliminate redundant shell-outs
+- ✅ **Added priority-based source ordering** - CommandSources now properly sorted by Priority() values
+- ✅ **Fixed resource leaks in MakeSource** - Replaced defer-in-loop patterns with `os.ReadFile()`
+- ✅ **Removed dead code** - Deleted 124 lines of unused `findCommandExact` functions
+- ✅ **Consolidated runner abstractions** - Removed duplicate `*runner` types in favor of CommandSource interface (saved 551 lines)
+- ✅ **Fixed typecheck synthesis bugs** - Python typecheck now properly executes via package managers or directly
+
 ## Command Execution Architecture ⭐
 
 ### Separate Planning and Execution Phases

@@ -104,11 +104,14 @@ func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 
 	// Check for make
 	if FileExists(filepath.Join(dir, "Makefile")) || FileExists(filepath.Join(dir, "makefile")) {
-		makeRunner := &makeRunner{}
-		if makeRunner.hasTarget(dir, "check") {
-			cmd := exec.Command("make", append([]string{"check"}, r.Args...)...)
-			cmd.Dir = dir
-			return cmd
+		project := ResolveProject(dir)
+		if makeSource := findSourceByName(project.CommandSources, "make"); makeSource != nil {
+			commands := makeSource.ListCommands()
+			if _, exists := commands["check"]; exists {
+				cmd := exec.Command("make", append([]string{"check"}, r.Args...)...)
+				cmd.Dir = dir
+				return cmd
+			}
 		}
 	}
 

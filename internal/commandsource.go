@@ -235,6 +235,16 @@ func (b *baseSource) cacheKey() string {
 	return b.name + ":" + b.dir
 }
 
+// Helper functions to find specific CommandSource types from a list
+func findSourceByName(sources []CommandSource, name string) CommandSource {
+	for _, source := range sources {
+		if source.Name() == name {
+			return source
+		}
+	}
+	return nil
+}
+
 // Helper function to parse package.json scripts
 func parsePackageJsonScripts(dir string) (map[string]string, error) {
 	packageJSON := filepath.Join(dir, "package.json")
