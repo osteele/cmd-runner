@@ -6,12 +6,41 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // CommandInfo holds information about a command
 type CommandInfo struct {
 	Description string // Human-readable description
 	Execution   string // What will actually be executed
+}
+
+// commandListCache caches the output of ListCommands for each source
+// Key format: "sourceName:directory"
+var commandListCache = struct {
+	sync.RWMutex
+	data map[string]map[string]CommandInfo
+}{data: make(map[string]map[string]CommandInfo)}
+
+// getCachedCommands retrieves cached commands or executes the list function
+func getCachedCommands(cacheKey string, listFunc func() map[string]CommandInfo) map[string]CommandInfo {
+	// Try to read from cache first
+	commandListCache.RLock()
+	if cached, exists := commandListCache.data[cacheKey]; exists {
+		commandListCache.RUnlock()
+		return cached
+	}
+	commandListCache.RUnlock()
+
+	// Cache miss - execute the list function
+	commands := listFunc()
+
+	// Store in cache
+	commandListCache.Lock()
+	commandListCache.data[cacheKey] = commands
+	commandListCache.Unlock()
+
+	return commands
 }
 
 // CommandSource represents a source of commands (mise, just, make, package.json, etc.)
@@ -99,9 +128,26 @@ func ResolveProject(dir string) *Project {
 		}
 	}
 
+	// Sort sources by priority (lower number = higher priority)
+	sortSourcesByPriority(sources)
+
 	return &Project{
 		Dir:            dir,
 		CommandSources: sources,
+	}
+}
+
+// sortSourcesByPriority sorts CommandSources in-place by their Priority() value
+func sortSourcesByPriority(sources []CommandSource) {
+	// Simple insertion sort (list is small, typically < 10 elements)
+	for i := 1; i < len(sources); i++ {
+		key := sources[i]
+		j := i - 1
+		for j >= 0 && sources[j].Priority() > key.Priority() {
+			sources[j+1] = sources[j]
+			j--
+		}
+		sources[j+1] = key
 	}
 }
 
@@ -182,6 +228,11 @@ func (b *baseSource) Name() string {
 
 func (b *baseSource) Priority() int {
 	return b.priority
+}
+
+// cacheKey returns the cache key for this source
+func (b *baseSource) cacheKey() string {
+	return b.name + ":" + b.dir
 }
 
 // Helper function to parse package.json scripts
