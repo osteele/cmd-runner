@@ -9,7 +9,7 @@ import (
 	"github.com/osteele/cmd-runner/internal"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func showHelp() {
 	fmt.Fprintf(os.Stderr, "cmd-runner %s - Smart command runner for multiple build systems\n\n", version)
