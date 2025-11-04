@@ -28,13 +28,15 @@ func NewCargoSource(dir string) CommandSource {
 
 func (c *CargoSource) ListCommands() map[string]CommandInfo {
 	return map[string]CommandInfo{
-		"build":  {Description: "Build the project", Execution: "cargo build"},
-		"run":    {Description: "Run the project", Execution: "cargo run"},
-		"test":   {Description: "Run tests", Execution: "cargo test"},
-		"check":  {Description: "Check code for errors", Execution: "cargo check"},
-		"format": {Description: "Format code", Execution: "cargo fmt"},
-		"lint":   {Description: "Run clippy linter", Execution: "cargo clippy"},
-		"clean":  {Description: "Clean build artifacts", Execution: "cargo clean"},
+		"build":   {Description: "Build the project", Execution: "cargo build"},
+		"run":     {Description: "Run the project", Execution: "cargo run"},
+		"test":    {Description: "Run tests", Execution: "cargo test"},
+		"check":   {Description: "Check code for errors", Execution: "cargo check"},
+		"format":  {Description: "Format code", Execution: "cargo fmt"},
+		"lint":    {Description: "Run clippy linter", Execution: "cargo clippy"},
+		"clean":   {Description: "Clean build artifacts", Execution: "cargo clean"},
+		"setup":   {Description: "Download dependencies", Execution: "cargo fetch"},
+		"install": {Description: "Install binary globally", Execution: "cargo install --path ."},
 	}
 }
 
@@ -51,13 +53,20 @@ func (c *CargoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"tc":        "check",
 		"check":     "check",
 		"fix":       "fix",
+		"setup":     "fetch",
 		"install":   "install",
 		"publish":   "publish",
 	}
 
 	for _, variant := range GetCommandVariants(command) {
 		if cargoCmd, ok := cargoCommands[variant]; ok {
-			cmdArgs := append([]string{cargoCmd}, args...)
+			var cmdArgs []string
+			if cargoCmd == "install" {
+				// Modern cargo requires --path for installing from current directory
+				cmdArgs = append([]string{"install", "--path", "."}, args...)
+			} else {
+				cmdArgs = append([]string{cargoCmd}, args...)
+			}
 			cmd := exec.Command("cargo", cmdArgs...)
 			cmd.Dir = c.dir
 			return cmd
@@ -105,12 +114,14 @@ func NewGoSource(dir string) CommandSource {
 
 func (g *GoSource) ListCommands() map[string]CommandInfo {
 	return map[string]CommandInfo{
-		"build":  {Description: "Build the project", Execution: "go build"},
-		"run":    {Description: "Run the project", Execution: "go run ."},
-		"test":   {Description: "Run tests", Execution: "go test ./..."},
-		"format": {Description: "Format code", Execution: "go fmt ./..."},
-		"lint":   {Description: "Run linter", Execution: "go vet ./..."},
-		"clean":  {Description: "Clean build artifacts", Execution: "go clean"},
+		"build":   {Description: "Build the project", Execution: "go build"},
+		"run":     {Description: "Run the project", Execution: "go run ."},
+		"test":    {Description: "Run tests", Execution: "go test ./..."},
+		"format":  {Description: "Format code", Execution: "go fmt ./..."},
+		"lint":    {Description: "Run linter", Execution: "go vet ./..."},
+		"clean":   {Description: "Clean build artifacts", Execution: "go clean"},
+		"setup":   {Description: "Download dependencies", Execution: "go mod download"},
+		"install": {Description: "Install binary globally", Execution: "go install ."},
 	}
 }
 
@@ -122,7 +133,8 @@ func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"format":    {"fmt", "./..."},
 		"fmt":       {"fmt", "./..."},
 		"clean":     {"clean"},
-		"install":   {"mod", "download"},
+		"setup":     {"mod", "download"},
+		"install":   {"install", "."},
 		"lint":      {"vet", "./..."},
 		"typecheck": {"build", "-o", "/dev/null", "./..."},
 		"tc":        {"build", "-o", "/dev/null", "./..."},
@@ -166,11 +178,13 @@ func (g *GradleSource) ListCommands() map[string]CommandInfo {
 		gradleExec = "./gradlew"
 	}
 	return map[string]CommandInfo{
-		"build": {Description: "Build the project", Execution: gradleExec + " build"},
-		"run":   {Description: "Run the project", Execution: gradleExec + " run"},
-		"test":  {Description: "Run tests", Execution: gradleExec + " test"},
-		"clean": {Description: "Clean build artifacts", Execution: gradleExec + " clean"},
-		"check": {Description: "Run checks", Execution: gradleExec + " check"},
+		"build":   {Description: "Build the project", Execution: gradleExec + " build"},
+		"run":     {Description: "Run the project", Execution: gradleExec + " run"},
+		"test":    {Description: "Run tests", Execution: gradleExec + " test"},
+		"clean":   {Description: "Clean build artifacts", Execution: gradleExec + " clean"},
+		"check":   {Description: "Run checks", Execution: gradleExec + " check"},
+		"setup":   {Description: "Download dependencies", Execution: gradleExec + " build"},
+		"install": {Description: "Install application (requires application plugin)", Execution: gradleExec + " installDist"},
 	}
 }
 
@@ -181,16 +195,25 @@ func (g *GradleSource) FindCommand(command string, args []string) *exec.Cmd {
 	}
 
 	gradleCommands := map[string]string{
-		"build": "build",
-		"run":   "run",
-		"test":  "test",
-		"clean": "clean",
-		"check": "check",
+		"build":   "build",
+		"run":     "run",
+		"test":    "test",
+		"clean":   "clean",
+		"check":   "check",
+		"setup":   "build",
+		"install": "installDist",
 	}
 
 	for _, variant := range GetCommandVariants(command) {
 		if gradleCmd, ok := gradleCommands[variant]; ok {
-			cmdArgs := append([]string{gradleCmd}, args...)
+			var cmdArgs []string
+			// Handle commands with multiple parts (like "dependencies --write-locks")
+			if strings.Contains(gradleCmd, " ") {
+				parts := strings.Fields(gradleCmd)
+				cmdArgs = append(parts, args...)
+			} else {
+				cmdArgs = append([]string{gradleCmd}, args...)
+			}
 			cmd := exec.Command(gradleExec, cmdArgs...)
 			cmd.Dir = g.dir
 			return cmd
@@ -229,7 +252,8 @@ func (m *MavenSource) ListCommands() map[string]CommandInfo {
 		"run":     {Description: "Run the project", Execution: mvnExec + " exec:java"},
 		"test":    {Description: "Run tests", Execution: mvnExec + " test"},
 		"clean":   {Description: "Clean build artifacts", Execution: mvnExec + " clean"},
-		"install": {Description: "Install to local repository", Execution: mvnExec + " install"},
+		"setup":   {Description: "Download dependencies", Execution: mvnExec + " dependency:resolve"},
+		"install": {Description: "Install to local Maven repository", Execution: mvnExec + " install"},
 		"package": {Description: "Package the project", Execution: mvnExec + " package"},
 	}
 }
@@ -245,6 +269,7 @@ func (m *MavenSource) FindCommand(command string, args []string) *exec.Cmd {
 		"run":     "exec:java",
 		"test":    "test",
 		"clean":   "clean",
+		"setup":   "dependency:resolve",
 		"install": "install",
 		"package": "package",
 	}

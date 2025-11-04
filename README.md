@@ -176,6 +176,42 @@ cmdr test --verbose   # Runs test command with --verbose flag
 cmdr build --prod     # Runs build command with --prod flag
 ```
 
+### Setup vs Install
+
+`cmdr` distinguishes between two types of installation to avoid confusion:
+
+- **`cmdr setup`** - Install dependencies for local development
+  - Downloads and installs packages needed to build and run the project locally
+  - Node.js: `npm install`, `pnpm install`, `yarn`, `bun install`
+  - Python: `uv sync`, `poetry install`
+  - Go: `go mod download`
+  - Rust: `cargo fetch`
+  - Java (Maven): `mvn dependency:resolve`
+  - Java (Gradle): `gradle build`
+
+- **`cmdr install`** - Install binary/package globally for the user
+  - Makes the project's executable available system-wide
+  - Node.js: `npm link`, `pnpm link --global`, `yarn link`, `bun link`
+  - Python: `uv tool install .`, `pip install .`
+  - Go: `go install .`
+  - Rust: `cargo install --path .`
+  - Java (Maven): `mvn install` (to local Maven repository)
+  - Java (Gradle): `gradle installDist`
+
+**Example workflow:**
+
+```bash
+# First time working on a project - get dependencies
+$ cmdr setup
+Running: npm install
+# ... project dependencies installed ...
+
+# Later, after development - install your tool globally
+$ cmdr install
+Running: npm link
+# ... binary now available globally ...
+```
+
 ### Discovering Available Commands
 
 Use `cmdr --list` to see all available commands for your current project:

@@ -37,7 +37,8 @@ func NewPoetrySource(dir string) CommandSource {
 
 func (p *PoetrySource) ListCommands() map[string]CommandInfo {
 	return map[string]CommandInfo{
-		"install":   {Description: "Install dependencies", Execution: "poetry install"},
+		"setup":     {Description: "Install dependencies for development", Execution: "poetry install"},
+		"install":   {Description: "Install package globally", Execution: "pip install ."},
 		"run":       {Description: "Run Python interpreter", Execution: "poetry run python"},
 		"test":      {Description: "Run tests", Execution: "poetry run pytest"},
 		"format":    {Description: "Format code", Execution: "poetry run ruff format"},
@@ -50,7 +51,6 @@ func (p *PoetrySource) ListCommands() map[string]CommandInfo {
 
 func (p *PoetrySource) FindCommand(command string, args []string) *exec.Cmd {
 	poetryCommands := map[string][]string{
-		"install":   {"install"},
 		"setup":     {"install"},
 		"run":       {"run", "python"},
 		"test":      {"run", "pytest"},
@@ -62,6 +62,15 @@ func (p *PoetrySource) FindCommand(command string, args []string) *exec.Cmd {
 		"tc":        {"run", "pyright"},
 		"build":     {"build"},
 		"publish":   {"publish"},
+	}
+
+	// Check for install first (before variant matching)
+	// This ensures "install" doesn't accidentally match "setup" as a variant
+	if command == "install" {
+		cmdArgs := append([]string{"install", "."}, args...)
+		cmd := exec.Command("pip", cmdArgs...)
+		cmd.Dir = p.dir
+		return cmd
 	}
 
 	for _, variant := range GetCommandVariants(command) {
@@ -113,7 +122,8 @@ func NewUvSource(dir string) CommandSource {
 
 func (u *UvSource) ListCommands() map[string]CommandInfo {
 	return map[string]CommandInfo{
-		"install":   {Description: "Install dependencies", Execution: "uv sync"},
+		"setup":     {Description: "Install dependencies for development", Execution: "uv sync"},
+		"install":   {Description: "Install tool globally", Execution: "uv tool install ."},
 		"run":       {Description: "Run a command", Execution: "uv run"},
 		"test":      {Description: "Run tests", Execution: "uv run pytest"},
 		"format":    {Description: "Format code", Execution: "uv run ruff format"},
@@ -124,8 +134,8 @@ func (u *UvSource) ListCommands() map[string]CommandInfo {
 
 func (u *UvSource) FindCommand(command string, args []string) *exec.Cmd {
 	uvCommands := map[string][]string{
-		"install":   {"sync"},
 		"setup":     {"sync"},
+		"install":   {"tool", "install", "."},
 		"run":       {"run"},
 		"test":      {"run", "pytest"},
 		"lint":      {"run", "ruff", "check"},

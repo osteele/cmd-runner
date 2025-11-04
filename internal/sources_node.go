@@ -34,6 +34,24 @@ func (n *nodeBaseSource) ListCommands() map[string]CommandInfo {
 		}
 	}
 
+	// Add standard commands if not in scripts
+	if _, exists := commands["setup"]; !exists && n.packageManager != "deno" {
+		commands["setup"] = CommandInfo{
+			Description: "Install dependencies",
+			Execution:   n.packageManager + " install",
+		}
+	}
+	if _, exists := commands["install"]; !exists && n.packageManager != "deno" {
+		linkCmd := "link"
+		if n.packageManager == "pnpm" {
+			linkCmd = "link --global"
+		}
+		commands["install"] = CommandInfo{
+			Description: "Link binary globally",
+			Execution:   n.packageManager + " " + linkCmd,
+		}
+	}
+
 	return commands
 }
 
@@ -51,6 +69,27 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 			scriptExists = true
 			break
 		}
+	}
+
+	// Special handling for setup command
+	if !scriptExists && command == "setup" && n.packageManager != "deno" {
+		cmdArgs := append([]string{"install"}, args...)
+		cmd := exec.Command(n.packageManager, cmdArgs...)
+		cmd.Dir = n.dir
+		return cmd
+	}
+
+	// Special handling for install command (link binary globally)
+	if !scriptExists && command == "install" && n.packageManager != "deno" {
+		var cmdArgs []string
+		if n.packageManager == "pnpm" {
+			cmdArgs = append([]string{"link", "--global"}, args...)
+		} else {
+			cmdArgs = append([]string{"link"}, args...)
+		}
+		cmd := exec.Command(n.packageManager, cmdArgs...)
+		cmd.Dir = n.dir
+		return cmd
 	}
 
 	// Special handling for typecheck in TypeScript projects
@@ -104,7 +143,13 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 		return cmd
 	}
 
-	cmdArgs := append([]string{"run", command}, args...)
+	// npm requires -- separator to pass arguments to scripts
+	var cmdArgs []string
+	if n.packageManager == "npm" && len(args) > 0 {
+		cmdArgs = append([]string{"run", command, "--"}, args...)
+	} else {
+		cmdArgs = append([]string{"run", command}, args...)
+	}
 	cmd := exec.Command(n.packageManager, cmdArgs...)
 	cmd.Dir = n.dir
 	return cmd

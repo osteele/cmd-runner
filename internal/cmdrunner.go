@@ -341,7 +341,8 @@ func GetCommandVariants(command string) []string {
 		"t":         {"t", "test", "tests"},
 		"fix":       {"fix", "format-fix", "lint-fix"},
 		"clean":     {"clean"},
-		"install":   {"install", "setup"},
+		"install":   {"install"},
+		"setup":     {"setup"},
 		"check":     {"check"},
 		"typecheck": {"typecheck", "type-check", "types", "tc"},
 		"tc":        {"tc", "typecheck", "type-check", "types"},
@@ -372,8 +373,8 @@ func NormalizeCommand(cmd string) string {
 		"t":         {"test"}, // Short alias for test
 		"fix":       {"fix"},
 		"clean":     {"clean"},
-		"install":   {"install", "setup"},
-		"setup":     {"setup", "install"},
+		"install":   {"install"},
+		"setup":     {"setup"},
 		"check":     {"check"},
 		"typecheck": {"typecheck"},
 		"tc":        {"typecheck"}, // Short alias for typecheck
