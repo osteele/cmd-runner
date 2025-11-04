@@ -29,6 +29,8 @@ func showHelp() {
 	fmt.Fprintf(os.Stderr, "  install-alias [--dry-run]  Install 'cr' alias to shell config\n")
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Common Commands:\n")
+	fmt.Fprintf(os.Stderr, "  setup      Install dependencies for local development\n")
+	fmt.Fprintf(os.Stderr, "  install    Install binary/package globally\n")
 	fmt.Fprintf(os.Stderr, "  test       Run tests\n")
 	fmt.Fprintf(os.Stderr, "  build      Build the project\n")
 	fmt.Fprintf(os.Stderr, "  run        Run the project (or dev/serve)\n")

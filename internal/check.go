@@ -82,23 +82,27 @@ func (r *CommandRunner) synthesizeCheckCommand() error {
 func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
 	// Check for mise
 	if FileExists(filepath.Join(dir, ".mise.toml")) {
-		testCmd := exec.Command("mise", "run", "--list")
-		testCmd.Dir = dir
-		if output, err := testCmd.Output(); err == nil && strings.Contains(string(output), "check") {
-			cmd := exec.Command("mise", append([]string{"run", "check"}, r.Args...)...)
-			cmd.Dir = dir
-			return cmd
+		project := ResolveProject(dir)
+		if miseSource := findSourceByName(project.CommandSources, "mise"); miseSource != nil {
+			commands := miseSource.ListCommands()
+			if _, exists := commands["check"]; exists {
+				cmd := exec.Command("mise", append([]string{"run", "check"}, r.Args...)...)
+				cmd.Dir = dir
+				return cmd
+			}
 		}
 	}
 
 	// Check for just
 	if FileExists(filepath.Join(dir, "justfile")) || FileExists(filepath.Join(dir, "Justfile")) {
-		testCmd := exec.Command("just", "--list")
-		testCmd.Dir = dir
-		if output, err := testCmd.Output(); err == nil && strings.Contains(string(output), "check") {
-			cmd := exec.Command("just", append([]string{"check"}, r.Args...)...)
-			cmd.Dir = dir
-			return cmd
+		project := ResolveProject(dir)
+		if justSource := findSourceByName(project.CommandSources, "just"); justSource != nil {
+			commands := justSource.ListCommands()
+			if _, exists := commands["check"]; exists {
+				cmd := exec.Command("just", append([]string{"check"}, r.Args...)...)
+				cmd.Dir = dir
+				return cmd
+			}
 		}
 	}
 

@@ -46,7 +46,8 @@ The tool searches for commands from different build systems in the following ord
 | `check` | - | - | Run lint, typecheck, and test together |
 | `fix` | - | - | Auto-fix issues |
 | `clean` | - | - | Clean build artifacts |
-| `install` | `setup` | - | Install dependencies |
+| `setup` | - | - | Install dependencies for local development |
+| `install` | - | - | Install binary/package globally |
 
 **Note**: If a project has an actual command named `f`, `t`, etc., it will take precedence over the short alias expansion.
 
