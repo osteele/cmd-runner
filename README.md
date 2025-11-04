@@ -256,7 +256,8 @@ For a detailed explanation of the command discovery logic, aliasing, and support
 
 ## See Also
 
-Check out my [development tools](https://osteele.com/software/development-tools) page for additional projects.
+- [**project-version**](https://github.com/osteele/project-version) - A cross-language project version bumper that automates version bumping and releases across Node.js, Python, Rust, Go, and Ruby projects
+- Check out my [development tools](https://osteele.com/software/development-tools) page for additional projects
 
 ## License
 
