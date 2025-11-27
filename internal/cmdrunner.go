@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
-	"unsafe"
+
+	"golang.org/x/term"
 )
 
 type CommandRunner struct {
@@ -258,23 +258,11 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 
 // getTerminalWidth returns the terminal width, defaulting to 80 if it can't be determined
 func getTerminalWidth() int {
-	type winsize struct {
-		Row    uint16
-		Col    uint16
-		Xpixel uint16
-		Ypixel uint16
-	}
-
-	ws := &winsize{}
-	retCode, _, _ := syscall.Syscall(syscall.SYS_IOCTL,
-		uintptr(syscall.Stdout),
-		uintptr(syscall.TIOCGWINSZ),
-		uintptr(unsafe.Pointer(ws)))
-
-	if int(retCode) == -1 {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
 		return 80 // Default width
 	}
-	return int(ws.Col)
+	return width
 }
 
 // printCommand prints a command with optional verbose description
