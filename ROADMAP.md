@@ -16,7 +16,9 @@ For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 - ✅ **Removed dead code** - Deleted 124 lines of unused `findCommandExact` functions
 - ✅ **Consolidated runner abstractions** - Removed duplicate `*runner` types in favor of CommandSource interface (saved 551 lines)
 - ✅ **Fixed typecheck synthesis bugs** - Python typecheck now properly executes via package managers or directly
+- ✅ **Fixed fragile terminal width detection** - Replaced unsafe syscall with `term.GetSize()` from golang.org/x/term
 - ⬜ **Consolidate TypeScript typecheck synthesis** - Currently duplicated in sources_node.go and typecheck.go. Options: (A) centralize in typecheck.go for consistency with Python/Rust/Go, (B) extract shared helper function, or (C) keep Node sources "smart" about typecheck. Recommended: Option A or B for better maintainability.
+- ⬜ **Expand VCS detection** - Currently only checks `.git` and `.jj`. Add support for `.hg` (Mercurial), `.svn` (Subversion)
 
 ## Command Execution Architecture ⭐
 
@@ -122,6 +124,10 @@ For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 - Explain why a command wasn't found
 - Provide setup instructions for missing tools
 
+### Per-Project Configuration
+- ⬜ **`.cmdrrc` config file support** - Allow project-specific command overrides, custom aliases, and tool preferences
+- ⬜ **Partial success reporting for `check`** - Option to continue running all checks even after first failure, reporting all failures at end
+
 ### Python Type Checking
 - Improve pyright/mypy fallback so synthesized `typecheck` uses `poetry run`/`uv run`
 
@@ -141,6 +147,10 @@ For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 - Cache command discovery results
 - Invalidate cache on file changes
 - Persistent cache across sessions
+
+### Test Coverage
+- ⬜ **Increase test coverage** - Add more unit tests, especially for command discovery and source detection
+- ⬜ **Integration test framework** - Create optional integration tests that run when tools are available (controlled by environment variable or build tag)
 
 ### Lazy Loading
 - Load runners on-demand
