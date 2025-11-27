@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/osteele/cmd-runner/internal"
@@ -273,7 +274,10 @@ func installAlias(dryRun bool) error {
 			return fmt.Errorf("failed to read %s: %w", targetFile, err)
 		}
 
-		if strings.Contains(string(content), aliasLine) {
+		// Match "alias cr=cmdr" as a complete statement (not substring)
+		// This avoids false positives like "alias cr=cmdr-dev" or commented lines
+		aliasPattern := regexp.MustCompile(`(?m)^\s*alias\s+cr=cmdr\s*$`)
+		if aliasPattern.Match(content) {
 			if dryRun {
 				fmt.Printf("[DRY RUN] Alias 'cr' is already installed in %s\n", targetFile)
 			} else {
