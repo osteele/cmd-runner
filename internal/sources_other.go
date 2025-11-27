@@ -136,8 +136,8 @@ func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"setup":     {"mod", "download"},
 		"install":   {"install", "."},
 		"lint":      {"vet", "./..."},
-		"typecheck": {"build", "-o", "/dev/null", "./..."},
-		"tc":        {"build", "-o", "/dev/null", "./..."},
+		"typecheck": {"build", "-o", os.DevNull, "./..."},
+		"tc":        {"build", "-o", os.DevNull, "./..."},
 	}
 
 	for _, variant := range GetCommandVariants(command) {

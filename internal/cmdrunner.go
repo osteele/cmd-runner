@@ -20,7 +20,7 @@ type CommandRunner struct {
 
 func New(command string, args []string) *CommandRunner {
 	return &CommandRunner{
-		Command: NormalizeCommand(command),
+		Command: command, // Keep raw command; normalization happens in Run()
 		Args:    args,
 	}
 }

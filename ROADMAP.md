@@ -151,6 +151,7 @@ For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 ### Test Coverage
 - ⬜ **Increase test coverage** - Add more unit tests, especially for command discovery and source detection
 - ⬜ **Integration test framework** - Create optional integration tests that run when tools are available (controlled by environment variable or build tag)
+- ⬜ **Enable skipped typecheck tests** - Replace skipped tests with runnable versions using mocks or temporary wrappers to regain coverage over typecheck orchestration code paths
 
 ### Lazy Loading
 - Load runners on-demand

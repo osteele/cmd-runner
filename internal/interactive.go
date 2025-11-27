@@ -84,9 +84,13 @@ func (s *InteractiveSession) gatherCommands() {
 
 	// Add synthesized commands
 	synth := map[string]CommandInfo{
-		"check":     {Description: "Runs lint, typecheck, and test", Execution: "synthesized"},
-		"fix":       {Description: "Runs format and lint fix", Execution: "synthesized"},
-		"typecheck": {Description: "Runs type checking", Execution: "synthesized"},
+		"check": {Description: "Runs lint, typecheck, and test", Execution: "synthesized"},
+		"fix":   {Description: "Runs format and lint fix", Execution: "synthesized"},
+	}
+
+	// Only add typecheck if project has capability
+	if s.runner.hasTypecheckCapability() {
+		synth["typecheck"] = CommandInfo{Description: "Runs type checking", Execution: "synthesized"}
 	}
 
 	for cmd, info := range synth {
