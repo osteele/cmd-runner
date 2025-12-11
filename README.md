@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/osteele/cmd-runner/actions/workflows/ci.yml/badge.svg)](https://github.com/osteele/cmd-runner/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/osteele/cmd-runner)](https://goreportcard.com/report/github.com/osteele/cmd-runner)
+[![Go Reference](https://pkg.go.dev/badge/github.com/osteele/cmd-runner.svg)](https://pkg.go.dev/github.com/osteele/cmd-runner)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Changelog](https://img.shields.io/badge/changelog-CHANGELOG.md-blue)](CHANGELOG.md)
 
 <p align="center">
   <img src="docs/mascot.jpg" alt="cmd-runner mascot - a friendly robot with tools" width="256" height="256">
