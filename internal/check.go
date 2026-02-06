@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,14 +10,9 @@ import (
 
 // HandleCheckCommand handles the special 'check' command that runs lint, typecheck, and test
 func HandleCheckCommand(r *CommandRunner) error {
-	dirs := []string{r.CurrentDir}
-	if r.ProjectRoot != r.CurrentDir {
-		dirs = append(dirs, r.ProjectRoot)
-	}
-
 	// Try to find a native check command first
-	for _, dir := range dirs {
-		if cmd := r.findNativeCheckCommand(dir); cmd != nil {
+	for _, project := range r.resolveProjects() {
+		if cmd := r.findNativeCheckCommand(project); cmd != nil {
 			return r.ExecuteCommand(cmd)
 		}
 	}
@@ -79,80 +73,23 @@ func (r *CommandRunner) synthesizeCheckCommand() error {
 	return nil
 }
 
-func (r *CommandRunner) findNativeCheckCommand(dir string) *exec.Cmd {
-	// Check for mise
-	if FileExists(filepath.Join(dir, ".mise.toml")) {
-		project := ResolveProject(dir)
-		if miseSource := findSourceByName(project.CommandSources, "mise"); miseSource != nil {
-			commands := miseSource.ListCommands()
-			if _, exists := commands["check"]; exists {
-				cmd := exec.Command("mise", append([]string{"run", "check"}, r.Args...)...)
-				cmd.Dir = dir
+func (r *CommandRunner) findNativeCheckCommand(project *Project) *exec.Cmd {
+	// Look for "check" in command runner sources (mise, just, make)
+	// These are highest priority for native check commands
+	for _, source := range project.CommandSources {
+		commands := source.ListCommands()
+		if _, exists := commands["check"]; exists {
+			if cmd := source.FindCommand("check", r.Args); cmd != nil {
 				return cmd
 			}
 		}
 	}
-
-	// Check for just
-	if FileExists(filepath.Join(dir, "justfile")) || FileExists(filepath.Join(dir, "Justfile")) {
-		project := ResolveProject(dir)
-		if justSource := findSourceByName(project.CommandSources, "just"); justSource != nil {
-			commands := justSource.ListCommands()
-			if _, exists := commands["check"]; exists {
-				cmd := exec.Command("just", append([]string{"check"}, r.Args...)...)
-				cmd.Dir = dir
-				return cmd
-			}
-		}
-	}
-
-	// Check for make
-	if FileExists(filepath.Join(dir, "Makefile")) || FileExists(filepath.Join(dir, "makefile")) {
-		project := ResolveProject(dir)
-		if makeSource := findSourceByName(project.CommandSources, "make"); makeSource != nil {
-			commands := makeSource.ListCommands()
-			if _, exists := commands["check"]; exists {
-				cmd := exec.Command("make", append([]string{"check"}, r.Args...)...)
-				cmd.Dir = dir
-				return cmd
-			}
-		}
-	}
-
-	// Check for npm/yarn/bun scripts
-	if FileExists(filepath.Join(dir, "package.json")) {
-		data, err := os.ReadFile(filepath.Join(dir, "package.json"))
-		if err == nil {
-			var pkg struct {
-				Scripts map[string]string `json:"scripts"`
-			}
-			if json.Unmarshal(data, &pkg) == nil {
-				if _, ok := pkg.Scripts["check"]; ok {
-					packageManager := detectPackageManager(dir)
-					if packageManager != "" {
-						cmd := exec.Command(packageManager, append([]string{"run", "check"}, r.Args...)...)
-						cmd.Dir = dir
-						return cmd
-					}
-				}
-			}
-		}
-	}
-
 	return nil
 }
 
 // hasCommand checks if a command exists in any runner
 func (r *CommandRunner) hasCommand(command string) bool {
-	// Create a temporary runner to check for the specific command
-	// Build projects and check if command exists
-	projects := []*Project{}
-	projects = append(projects, ResolveProject(r.CurrentDir))
-	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
-		projects = append(projects, ResolveProject(r.ProjectRoot))
-	}
-
-	for _, project := range projects {
+	for _, project := range r.resolveProjects() {
 		for _, source := range project.CommandSources {
 			if cmd := source.FindCommand(command, []string{}); cmd != nil {
 				return true
@@ -166,12 +103,7 @@ func (r *CommandRunner) hasCommand(command string) bool {
 // provided command names. This ignores synthesized fallbacks that don't appear
 // in the source listings.
 func (r *CommandRunner) hasListedCommand(names ...string) bool {
-	projects := []*Project{ResolveProject(r.CurrentDir)}
-	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
-		projects = append(projects, ResolveProject(r.ProjectRoot))
-	}
-
-	for _, project := range projects {
+	for _, project := range r.resolveProjects() {
 		for _, source := range project.CommandSources {
 			commands := source.ListCommands()
 			for _, name := range names {
@@ -187,12 +119,9 @@ func (r *CommandRunner) hasListedCommand(names ...string) bool {
 
 // hasTypecheckCapability checks if the project supports typechecking
 func (r *CommandRunner) hasTypecheckCapability() bool {
-	dirs := []string{r.CurrentDir}
-	if r.ProjectRoot != r.CurrentDir {
-		dirs = append(dirs, r.ProjectRoot)
-	}
+	for _, project := range r.resolveProjects() {
+		dir := project.Dir
 
-	for _, dir := range dirs {
 		// TypeScript projects
 		if FileExists(filepath.Join(dir, "tsconfig.json")) {
 			return true
@@ -200,10 +129,11 @@ func (r *CommandRunner) hasTypecheckCapability() bool {
 
 		// Python projects with pyright or mypy
 		if FileExists(filepath.Join(dir, "pyproject.toml")) {
-			data, _ := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
-			content := string(data)
-			if strings.Contains(content, "pyright") || strings.Contains(content, "mypy") {
-				return true
+			if data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml")); err == nil {
+				content := string(data)
+				if strings.Contains(content, "pyright") || strings.Contains(content, "mypy") {
+					return true
+				}
 			}
 		}
 

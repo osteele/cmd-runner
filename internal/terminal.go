@@ -1,12 +1,20 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"golang.org/x/term"
+)
+
+// Sentinel errors for terminal control flow
+var (
+	ErrQuit      = errors.New("quit")
+	ErrInterrupt = errors.New("interrupt")
+	ErrEscape    = errors.New("escape")
 )
 
 // TerminalManager handles terminal mode switching and input
@@ -47,10 +55,10 @@ func (tm *TerminalManager) ReadKey() (rune, error) {
 
 	// Handle special keys
 	if b[0] == 3 { // Ctrl+C
-		return 0, fmt.Errorf("interrupt")
+		return 0, ErrInterrupt
 	}
 	if b[0] == 27 { // ESC
-		return 0, fmt.Errorf("escape")
+		return 0, ErrEscape
 	}
 
 	return rune(b[0]), nil

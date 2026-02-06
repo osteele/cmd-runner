@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"sort"
@@ -44,13 +45,13 @@ func RunInteractive() error {
 	for {
 		if session.viewingOutput {
 			if err := session.showOutputView(); err != nil {
-				if err.Error() == "quit" {
+				if errors.Is(err, ErrQuit) {
 					return nil
 				}
 			}
 		} else {
 			if err := session.showMenu(); err != nil {
-				if err.Error() == "quit" {
+				if errors.Is(err, ErrQuit) {
 					return nil
 				}
 			}
@@ -209,8 +210,8 @@ func (s *InteractiveSession) showMenu() error {
 
 	key, err := s.terminal.ReadKey()
 	if err != nil {
-		if err.Error() == "interrupt" {
-			return fmt.Errorf("quit")
+		if errors.Is(err, ErrInterrupt) {
+			return ErrQuit
 		}
 		return err
 	}
@@ -218,7 +219,7 @@ func (s *InteractiveSession) showMenu() error {
 	// Handle menu commands
 	switch key {
 	case 'q', 'Q':
-		return fmt.Errorf("quit")
+		return ErrQuit
 	case '.':
 		if s.lastCommand != "" {
 			return s.runCommand(s.lastCommand)
@@ -272,15 +273,15 @@ func (s *InteractiveSession) showOutputView() error {
 
 	key, err := s.terminal.ReadKey()
 	if err != nil {
-		if err.Error() == "interrupt" {
-			return fmt.Errorf("quit")
+		if errors.Is(err, ErrInterrupt) {
+			return ErrQuit
 		}
 		return err
 	}
 
 	switch key {
 	case 'q', 'Q':
-		return fmt.Errorf("quit")
+		return ErrQuit
 	case '/':
 		s.viewingOutput = false
 		return nil

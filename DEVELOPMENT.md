@@ -166,10 +166,11 @@ The tool supports multiple levels of command aliasing. For a detailed list of al
 
 ### Adding New Aliases
 
-To add a new command alias, update two places in `cmdrunner.go`:
+To add a new command alias, update the `commandGroups` slice in `cmdrunner.go`. This is the single source of truth — both `NormalizeCommand()` and `GetCommandVariants()` are derived from it at init time.
 
-1. `NormalizeCommand()` - Maps input commands to canonical forms
-2. `GetCommandVariants()` - Returns all variations to try for a command
+- To add a new command group: add a `commandGroup{canonical, variants}` entry
+- To add an alias to an existing group: append it to that group's `variants` slice
+- Names in `variants` that don't have their own group entry are treated as aliases that normalize to the canonical name
 
 ## Testing Strategy
 
@@ -182,21 +183,6 @@ To add a new command alias, update two places in `cmdrunner.go`:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and linting
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-## Release Process
-
-1. Update version in code if applicable
-2. Run full test suite
-3. Build binaries for all platforms
-4. Create git tag: `git tag -a v1.0.0 -m "Release v1.0.0"`
-5. Push tag: `git push origin v1.0.0`
-6. Create GitHub release with binaries
-nch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Run tests and linting
 5. Commit your changes (`git commit -m 'Add amazing feature'`)

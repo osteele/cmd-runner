@@ -142,7 +142,9 @@ func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 
 	for _, variant := range GetCommandVariants(command) {
 		if goCmd, ok := goCommands[variant]; ok {
-			cmdArgs := append(goCmd, args...)
+			cmdArgs := make([]string, len(goCmd), len(goCmd)+len(args))
+			copy(cmdArgs, goCmd)
+			cmdArgs = append(cmdArgs, args...)
 			cmd := exec.Command("go", cmdArgs...)
 			cmd.Dir = g.dir
 			return cmd

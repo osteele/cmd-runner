@@ -3,39 +3,23 @@ package internal
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
 
 // HandleFixCommand handles the special 'fix' command that runs format/lint fixes
 func HandleFixCommand(r *CommandRunner) error {
-	dirs := []string{r.CurrentDir}
-	if r.ProjectRoot != r.CurrentDir {
-		dirs = append(dirs, r.ProjectRoot)
-	}
-
 	// Try to find a native fix command first
-	for _, dir := range dirs {
-		if cmd := r.findNativeFixCommand(dir); cmd != nil {
-			return r.ExecuteCommand(cmd)
+	for _, project := range r.resolveProjects() {
+		for _, source := range project.CommandSources {
+			if cmd := source.FindCommand("fix", r.Args); cmd != nil {
+				return r.ExecuteCommand(cmd)
+			}
 		}
 	}
 
 	// If no native fix command, synthesize by running format and lint fix commands
 	return r.synthesizeFixCommand()
-}
-
-// findNativeFixCommand looks for a native fix command in the project
-func (r *CommandRunner) findNativeFixCommand(dir string) *exec.Cmd {
-	// Check if there's a native fix command
-	project := ResolveProject(dir)
-	for _, source := range project.CommandSources {
-		if cmd := source.FindCommand("fix", r.Args); cmd != nil {
-			return cmd
-		}
-	}
-	return nil
 }
 
 // synthesizeFixCommand runs format and lint fix commands
@@ -124,18 +108,14 @@ func (r *CommandRunner) synthesizeFixCommand() error {
 
 // supportsLintFix checks if the project's lint command supports a --fix flag
 func (r *CommandRunner) supportsLintFix() bool {
-	// Go projects don't support lint --fix (go vet has no --fix flag)
-	if FileExists(filepath.Join(r.CurrentDir, "go.mod")) ||
-		FileExists(filepath.Join(r.ProjectRoot, "go.mod")) {
-		return false
-	}
+	for _, project := range r.resolveProjects() {
+		dir := project.Dir
 
-	dirs := []string{r.CurrentDir}
-	if r.ProjectRoot != r.CurrentDir {
-		dirs = append(dirs, r.ProjectRoot)
-	}
+		// Go projects don't support lint --fix (go vet has no --fix flag)
+		if FileExists(filepath.Join(dir, "go.mod")) {
+			return false
+		}
 
-	for _, dir := range dirs {
 		// Node.js projects with ESLint typically support --fix
 		if FileExists(filepath.Join(dir, "package.json")) {
 			if data, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
@@ -158,9 +138,6 @@ func (r *CommandRunner) supportsLintFix() bool {
 
 		// Rust clippy supports --fix
 		if FileExists(filepath.Join(dir, "Cargo.toml")) {
-			// For Rust, we'd actually want to run "cargo fix" or "cargo clippy --fix"
-			// but for now return false since our lint command maps to "cargo clippy"
-			// which doesn't take --fix as a trailing argument
 			return false
 		}
 	}

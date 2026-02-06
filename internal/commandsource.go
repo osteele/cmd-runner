@@ -32,11 +32,14 @@ func getCachedCommands(cacheKey string, listFunc func() map[string]CommandInfo) 
 	}
 	commandListCache.RUnlock()
 
-	// Cache miss - execute the list function
-	commands := listFunc()
-
-	// Store in cache
+	// Cache miss - acquire write lock and double-check
 	commandListCache.Lock()
+	if cached, exists := commandListCache.data[cacheKey]; exists {
+		commandListCache.Unlock()
+		return cached
+	}
+
+	commands := listFunc()
 	commandListCache.data[cacheKey] = commands
 	commandListCache.Unlock()
 
@@ -243,6 +246,25 @@ func findSourceByName(sources []CommandSource, name string) CommandSource {
 		}
 	}
 	return nil
+}
+
+// nodePackageManagerName returns the Node.js package manager name from a
+// project's sources (e.g., "npm", "bun", "pnpm", "yarn", "deno"), or empty
+// string if none found.
+func nodePackageManagerName(project *Project) string {
+	nodeSourceNames := map[string]bool{
+		"npm": true, "bun": true, "pnpm": true, "yarn": true, "Deno": true,
+	}
+	for _, source := range project.CommandSources {
+		if nodeSourceNames[source.Name()] {
+			name := source.Name()
+			if name == "Deno" {
+				return "deno"
+			}
+			return name
+		}
+	}
+	return ""
 }
 
 // Helper function to parse package.json scripts

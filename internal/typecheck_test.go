@@ -3,6 +3,7 @@ package internal
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -171,7 +172,7 @@ strict = true`
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
-				} else if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
+				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("Expected error containing %q, got %q", tt.errorContains, err.Error())
 				}
 			} else if err != nil {
@@ -264,7 +265,7 @@ strict = ["src"]`
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
-				} else if tt.errorContains != "" && !contains(err.Error(), tt.errorContains) {
+				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("Expected error containing %q, got %q", tt.errorContains, err.Error())
 				}
 			} else if err != nil {
@@ -272,18 +273,4 @@ strict = ["src"]`
 			}
 		})
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && indexOf(s, substr) >= 0))
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

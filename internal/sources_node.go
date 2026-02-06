@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -308,16 +307,18 @@ func (d *DenoSource) FindCommand(command string, args []string) *exec.Cmd {
 
 	// Check if there's a task defined in deno.json
 	if FileExists(filepath.Join(d.dir, "deno.json")) || FileExists(filepath.Join(d.dir, "deno.jsonc")) {
-		for _, variant := range GetCommandVariants(command) {
-			// Try to run as a task
-			testCmd := exec.Command("deno", "task", "--list")
-			testCmd.Dir = d.dir
-			output, err := testCmd.Output()
-			if err == nil && strings.Contains(string(output), variant) {
-				cmdArgs := append([]string{"task", variant}, args...)
-				cmd := exec.Command("deno", cmdArgs...)
-				cmd.Dir = d.dir
-				return cmd
+		testCmd := exec.Command("deno", "task", "--list")
+		testCmd.Dir = d.dir
+		output, err := testCmd.Output()
+		if err == nil {
+			taskList := string(output)
+			for _, variant := range GetCommandVariants(command) {
+				if strings.Contains(taskList, variant) {
+					cmdArgs := append([]string{"task", variant}, args...)
+					cmd := exec.Command("deno", cmdArgs...)
+					cmd.Dir = d.dir
+					return cmd
+				}
 			}
 		}
 	}
@@ -325,56 +326,3 @@ func (d *DenoSource) FindCommand(command string, args []string) *exec.Cmd {
 	return nil
 }
 
-// detectPackageManager determines which Node.js package manager to use
-func detectPackageManager(dir string) string {
-	// Priority order: bun > pnpm > yarn > npm > deno
-	// Based on lockfiles first, then config files
-
-	// Check lockfiles first for accurate detection
-	if FileExists(filepath.Join(dir, "bun.lockb")) {
-		return "bun"
-	}
-
-	if FileExists(filepath.Join(dir, "pnpm-lock.yaml")) {
-		return "pnpm"
-	}
-
-	if FileExists(filepath.Join(dir, "yarn.lock")) {
-		return "yarn"
-	}
-
-	if FileExists(filepath.Join(dir, "package-lock.json")) {
-		return "npm"
-	}
-
-	if FileExists(filepath.Join(dir, "deno.lock")) {
-		return "deno"
-	}
-
-	// Check for Deno config files
-	if FileExists(filepath.Join(dir, "deno.json")) || FileExists(filepath.Join(dir, "deno.jsonc")) {
-		return "deno"
-	}
-
-	// Fall back to config files if no lockfile exists
-	if FileExists(filepath.Join(dir, ".yarnrc.yml")) || FileExists(filepath.Join(dir, ".yarnrc")) {
-		return "yarn"
-	}
-
-	if FileExists(filepath.Join(dir, ".npmrc")) {
-		// Check if .npmrc indicates pnpm
-		if content, err := os.ReadFile(filepath.Join(dir, ".npmrc")); err == nil {
-			if strings.Contains(string(content), "pnpm") {
-				return "pnpm"
-			}
-		}
-		return "npm"
-	}
-
-	// Default to npm if package.json exists but no lockfile found
-	if FileExists(filepath.Join(dir, "package.json")) {
-		return "npm"
-	}
-
-	return ""
-}

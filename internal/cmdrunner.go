@@ -16,6 +16,7 @@ type CommandRunner struct {
 	Args        []string
 	CurrentDir  string
 	ProjectRoot string
+	projects    []*Project // cached resolved projects
 }
 
 func New(command string, args []string) *CommandRunner {
@@ -51,17 +52,20 @@ func (r *CommandRunner) FindProjectRoot(dir string) string {
 	return dir
 }
 
-func (r *CommandRunner) Run() error {
-	// Build projects for current dir and project root
-	projects := []*Project{}
-
-	// Add current directory project
-	projects = append(projects, ResolveProject(r.CurrentDir))
-
-	// Add project root if different
-	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
-		projects = append(projects, ResolveProject(r.ProjectRoot))
+// resolveProjects returns cached resolved projects, resolving on first call.
+func (r *CommandRunner) resolveProjects() []*Project {
+	if r.projects != nil {
+		return r.projects
 	}
+	r.projects = []*Project{ResolveProject(r.CurrentDir)}
+	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
+		r.projects = append(r.projects, ResolveProject(r.ProjectRoot))
+	}
+	return r.projects
+}
+
+func (r *CommandRunner) Run() error {
+	projects := r.resolveProjects()
 
 	// First, try to find the exact command (no normalization)
 	for _, project := range projects {
@@ -128,13 +132,7 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 	// Track what we've already shown to avoid duplicates
 	shown := make(map[string]bool)
 
-	// Build projects for current dir and project root
-	projects := []*Project{}
-	projects = append(projects, ResolveProject(r.CurrentDir))
-
-	if r.ProjectRoot != r.CurrentDir && r.ProjectRoot != "" {
-		projects = append(projects, ResolveProject(r.ProjectRoot))
-	}
+	projects := r.resolveProjects()
 
 	sourcesShown := 0
 	hasExplicitTypecheck := r.hasListedCommand("typecheck", "tc")
@@ -312,64 +310,88 @@ func isPrivateCommand(name string) bool {
 	return strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".")
 }
 
-func GetCommandVariants(command string) []string {
-	variants := map[string][]string{
-		"format":    {"format", "fmt", "f"},
-		"f":         {"f", "format", "fmt"},
-		"run":       {"run", "r", "dev", "serve", "start"},
-		"r":         {"r", "run", "dev", "serve", "start"},
-		"dev":       {"dev", "run", "serve", "start"},
-		"serve":     {"serve", "s", "dev", "run", "start"},
-		"s":         {"s", "serve", "dev", "run", "start"},
-		"build":     {"build", "b"},
-		"b":         {"b", "build"},
-		"lint":      {"lint", "l"},
-		"l":         {"l", "lint"},
-		"test":      {"test", "t", "tests"},
-		"t":         {"t", "test", "tests"},
-		"fix":       {"fix", "format-fix", "lint-fix"},
-		"clean":     {"clean"},
-		"install":   {"install"},
-		"setup":     {"setup"},
-		"check":     {"check"},
-		"typecheck": {"typecheck", "type-check", "types", "tc"},
-		"tc":        {"tc", "typecheck", "type-check", "types"},
+// commandGroup defines a group of related commands.
+// Canonical is the primary name. Variants lists other names to try (in order)
+// when the canonical name isn't found. Names in variants that don't have their
+// own commandGroup entry are treated as aliases that normalize to canonical.
+type commandGroup struct {
+	canonical string
+	variants  []string
+}
+
+// commandGroups is the single source of truth for command aliasing.
+// Both NormalizeCommand and GetCommandVariants derive from this.
+var commandGroups = []commandGroup{
+	{"format", []string{"fmt", "f"}},
+	{"run", []string{"r", "dev", "serve", "start"}},
+	{"dev", []string{"run", "serve", "start"}},
+	{"serve", []string{"s", "dev", "run", "start"}},
+	{"start", []string{"run", "dev", "serve"}},
+	{"build", []string{"b"}},
+	{"lint", []string{"l"}},
+	{"test", []string{"t", "tests"}},
+	{"typecheck", []string{"type-check", "types", "tc"}},
+	{"fix", []string{"format-fix", "lint-fix"}},
+	{"clean", nil},
+	{"install", nil},
+	{"setup", nil},
+	{"check", nil},
+}
+
+// variantsMap and normalizeMap are built once from commandGroups at init.
+var (
+	variantsMap  map[string][]string
+	normalizeMap map[string]string
+)
+
+func init() {
+	variantsMap = make(map[string][]string)
+	normalizeMap = make(map[string]string)
+
+	// Collect canonical names so we can distinguish aliases from standalone commands
+	canonicalSet := make(map[string]bool, len(commandGroups))
+	for _, g := range commandGroups {
+		canonicalSet[g.canonical] = true
 	}
 
-	if v, ok := variants[command]; ok {
+	for _, g := range commandGroups {
+		// Full search list for this canonical command
+		fullList := make([]string, 0, 1+len(g.variants))
+		fullList = append(fullList, g.canonical)
+		fullList = append(fullList, g.variants...)
+
+		variantsMap[g.canonical] = fullList
+		normalizeMap[g.canonical] = g.canonical
+
+		// Build entries for each variant
+		for _, v := range g.variants {
+			if canonicalSet[v] {
+				continue // has its own group, skip
+			}
+			// This variant is an alias — build its search list: [self, rest...]
+			aliasVariants := make([]string, 0, len(fullList))
+			aliasVariants = append(aliasVariants, v)
+			for _, name := range fullList {
+				if name != v {
+					aliasVariants = append(aliasVariants, name)
+				}
+			}
+			variantsMap[v] = aliasVariants
+			normalizeMap[v] = g.canonical
+		}
+	}
+}
+
+func GetCommandVariants(command string) []string {
+	if v, ok := variantsMap[command]; ok {
 		return v
 	}
 	return []string{command}
 }
 
 func NormalizeCommand(cmd string) string {
-	aliases := map[string][]string{
-		"format":    {"format", "fmt"},
-		"fmt":       {"format", "fmt"},
-		"f":         {"format"}, // Short alias for format
-		"run":       {"run", "dev", "serve", "start"},
-		"r":         {"run"}, // Short alias for run
-		"dev":       {"dev", "run", "serve", "start"},
-		"serve":     {"serve", "dev", "run", "start"},
-		"s":         {"serve"}, // Short alias for serve/server
-		"start":     {"start", "run", "dev", "serve"},
-		"build":     {"build"},
-		"b":         {"build"}, // Short alias for build
-		"lint":      {"lint"},
-		"l":         {"lint"}, // Short alias for lint
-		"test":      {"test"},
-		"t":         {"test"}, // Short alias for test
-		"fix":       {"fix"},
-		"clean":     {"clean"},
-		"install":   {"install"},
-		"setup":     {"setup"},
-		"check":     {"check"},
-		"typecheck": {"typecheck"},
-		"tc":        {"typecheck"}, // Short alias for typecheck
-	}
-
-	if alternatives, ok := aliases[cmd]; ok {
-		return alternatives[0]
+	if normalized, ok := normalizeMap[cmd]; ok {
+		return normalized
 	}
 	return cmd
 }

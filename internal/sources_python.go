@@ -75,18 +75,16 @@ func (p *PoetrySource) FindCommand(command string, args []string) *exec.Cmd {
 
 	for _, variant := range GetCommandVariants(command) {
 		if poetryCmd, ok := poetryCommands[variant]; ok {
-			cmdArgs := append(poetryCmd, args...)
+			cmdArgs := make([]string, len(poetryCmd), len(poetryCmd)+len(args))
+			copy(cmdArgs, poetryCmd)
+			cmdArgs = append(cmdArgs, args...)
 			cmd := exec.Command("poetry", cmdArgs...)
 			cmd.Dir = p.dir
 			return cmd
 		}
 	}
 
-	// Try to run any command through poetry run
-	cmdArgs := append([]string{"run", command}, args...)
-	cmd := exec.Command("poetry", cmdArgs...)
-	cmd.Dir = p.dir
-	return cmd
+	return nil
 }
 
 // UvSource for uv projects
@@ -148,7 +146,9 @@ func (u *UvSource) FindCommand(command string, args []string) *exec.Cmd {
 
 	for _, variant := range GetCommandVariants(command) {
 		if uvCmd, ok := uvCommands[variant]; ok {
-			cmdArgs := append(uvCmd, args...)
+			cmdArgs := make([]string, len(uvCmd), len(uvCmd)+len(args))
+			copy(cmdArgs, uvCmd)
+			cmdArgs = append(cmdArgs, args...)
 			cmd := exec.Command("uv", cmdArgs...)
 			cmd.Dir = u.dir
 			return cmd
