@@ -22,8 +22,21 @@ type pythonProjectConfig struct {
 }
 
 func readPythonProjectConfig(dir string) (*pythonProjectConfig, error) {
+	path := filepath.Join(dir, "pyproject.toml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	config, err := parsePythonProjectConfig(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return config, nil
+}
+
+func parsePythonProjectConfig(data []byte) (*pythonProjectConfig, error) {
 	var config pythonProjectConfig
-	if err := decodeTOMLFile(filepath.Join(dir, "pyproject.toml"), &config); err != nil {
+	if err := toml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
 	return &config, nil
@@ -188,8 +201,21 @@ func sortedKeys(values map[string]bool) []string {
 }
 
 func readCargoManifest(dir string) (*cargoManifest, error) {
+	path := filepath.Join(dir, "Cargo.toml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	manifest, err := parseCargoManifest(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return manifest, nil
+}
+
+func parseCargoManifest(data []byte) (*cargoManifest, error) {
 	var manifest cargoManifest
-	if err := decodeTOMLFile(filepath.Join(dir, "Cargo.toml"), &manifest); err != nil {
+	if err := toml.Unmarshal(data, &manifest); err != nil {
 		return nil, err
 	}
 	return &manifest, nil
@@ -213,13 +239,22 @@ type nodePackage struct {
 }
 
 func readNodePackage(dir string) (*nodePackage, error) {
-	var packageConfig nodePackage
-	data, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	path := filepath.Join(dir, "package.json")
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+	packageConfig, err := parseNodePackage(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return packageConfig, nil
+}
+
+func parseNodePackage(data []byte) (*nodePackage, error) {
+	var packageConfig nodePackage
 	if err := json.Unmarshal(data, &packageConfig); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", filepath.Join(dir, "package.json"), err)
+		return nil, err
 	}
 	return &packageConfig, nil
 }
