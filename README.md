@@ -134,7 +134,7 @@ go install ./cmd/cmdr
 cmdr [OPTIONS] <command> [args...]
 cmdr --list                      # List all available commands for current project
 cmdr --list --all                # Show commands from all sources
-cmdr --list --verbose            # Show full command descriptions
+cmdr --list --verbose            # Show descriptions and configuration warnings
 cmdr --help                      # Show help information
 cmdr --version                   # Show version
 cmdr install-alias [--dry-run]  # Install 'cr' alias to shell config
@@ -143,7 +143,7 @@ cmdr install-alias [--dry-run]  # Install 'cr' alias to shell config
 Options:
 - `--list`, `-l` - List all available commands for current project
   - `--all`, `-a` - Show commands from all sources (not just primary)
-  - `--verbose` - Show full command descriptions without truncation
+  - `--verbose` - Show full descriptions and malformed configuration warnings
 - `--version`, `-v` - Show version information
 - `--help`, `-h` - Show help message
 
@@ -171,7 +171,7 @@ cmdr l                # lint
 cmdr --list           # List commands for current project (primary source only)
 cmdr -l               # Short form of --list
 cmdr --list --all     # Show commands from all sources and directories
-cmdr --list --verbose # Show full descriptions without truncation
+cmdr --list --verbose # Show descriptions and configuration warnings
 
 # Flags are passed through to commands
 cmdr test --verbose   # Runs test command with --verbose flag
@@ -244,7 +244,7 @@ The list command shows:
 Options for `--list`:
 - By default, shows only the primary command source with descriptions truncated to terminal width
 - Use `--all` to see commands from all sources (current directory and project root)
-- Use `--verbose` to see full descriptions without truncation
+- Use `--verbose` to see full descriptions and malformed configuration warnings
 - Use `--help` with `--list` to see available options
 
 ## Features

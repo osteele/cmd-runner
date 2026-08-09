@@ -289,6 +289,19 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 		}
 	}
 
+	if verbose {
+		diagnostics := make([]string, 0)
+		for _, project := range projects {
+			diagnostics = append(diagnostics, project.configurationDiagnostics()...)
+		}
+		if len(diagnostics) > 0 {
+			fmt.Fprintln(stdout, "\nConfiguration warnings:")
+			for _, diagnostic := range diagnostics {
+				fmt.Fprintf(stdout, "  - %s\n", diagnostic)
+			}
+		}
+	}
+
 	fmt.Fprintln(stdout, "\nCommand aliases:")
 	fmt.Fprintln(stdout, "  f  → format     t  → test       tc → typecheck")
 	fmt.Fprintln(stdout, "  r  → run        s  → serve      b  → build")

@@ -250,3 +250,54 @@ func TestCommandCacheRefreshesWhenConfigurationChanges(t *testing.T) {
 		t.Fatalf("list function called %d times after change, want 2", calls)
 	}
 }
+
+func TestVerboseListingReportsMalformedConfiguration(t *testing.T) {
+	dir := t.TempDir()
+	malformedFiles := map[string]string{
+		"package.json":   `{"scripts":`,
+		"deno.jsonc":     `{"tasks":{"test":"deno test",},`,
+		"pyproject.toml": `[project`,
+		"Cargo.toml":     `[package`,
+	}
+	for name, content := range malformedFiles {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var verboseOutput bytes.Buffer
+	runner := &CommandRunner{
+		CurrentDir:  dir,
+		ProjectRoot: dir,
+		Stdout:      &verboseOutput,
+		projects:    []*Project{ResolveProject(dir)},
+	}
+	runner.ListCommandsWithOptions(true, true)
+	output := verboseOutput.String()
+	if !strings.Contains(output, "Configuration warnings:") {
+		t.Fatalf("verbose output does not contain configuration warnings: %q", output)
+	}
+	for name := range malformedFiles {
+		if !strings.Contains(output, name) {
+			t.Errorf("verbose output does not mention %s: %q", name, output)
+		}
+	}
+
+	var normalOutput bytes.Buffer
+	runner.Stdout = &normalOutput
+	runner.ListCommandsWithOptions(true, false)
+	if strings.Contains(normalOutput.String(), "Configuration warnings:") {
+		t.Fatalf("normal output unexpectedly contains configuration warnings: %q", normalOutput.String())
+	}
+}
+
+func TestConfigurationDiagnosticsReportMalformedGoModule(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("not a module\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	diagnostics := ResolveProject(dir).configurationDiagnostics()
+	if len(diagnostics) != 1 || !strings.Contains(diagnostics[0], "go.mod") {
+		t.Fatalf("configuration diagnostics = %v, want malformed go.mod", diagnostics)
+	}
+}

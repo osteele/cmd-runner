@@ -219,7 +219,7 @@ func readNodePackage(dir string) (*nodePackage, error) {
 		return nil, err
 	}
 	if err := json.Unmarshal(data, &packageConfig); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse %s: %w", filepath.Join(dir, "package.json"), err)
 	}
 	return &packageConfig, nil
 }
