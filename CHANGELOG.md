@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Upgrade `golang.org/x/term` to 0.29.0 and `golang.org/x/sys` to 0.30.0 while preserving Go 1.21 compatibility
+- Standardize development and CI on Go 1.25 and upgrade Go dependencies to their latest releases
 
 ### Fixed
 
