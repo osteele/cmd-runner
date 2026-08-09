@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Standardize development and CI on Go 1.25 and upgrade Go dependencies to their latest releases
 - Report versions from Go build metadata or the release build version instead of a hardcoded constant
+- Route CLI argument handling and output through a testable entrypoint
+- Refresh cached command lists when runner configuration files change
 
 ### Fixed
 

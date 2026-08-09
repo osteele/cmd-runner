@@ -197,3 +197,56 @@ func TestExecuteCommandCanCaptureOutput(t *testing.T) {
 		t.Fatalf("captured output = %q", got)
 	}
 }
+
+func TestListCommandsUsesConfiguredOutput(t *testing.T) {
+	var stdout bytes.Buffer
+	dir := t.TempDir()
+	runner := &CommandRunner{
+		CurrentDir:  dir,
+		ProjectRoot: dir,
+		Stdout:      &stdout,
+		projects: []*Project{{
+			Dir: dir,
+			CommandSources: []CommandSource{&stubSource{
+				name: "fixture",
+				commands: map[string]*exec.Cmd{
+					"test": exec.Command("true"),
+				},
+			}},
+		}},
+	}
+
+	runner.ListCommands()
+	if got := stdout.String(); !strings.Contains(got, "fixture commands:") || !strings.Contains(got, "test") {
+		t.Fatalf("ListCommands() output = %q, want fixture test command", got)
+	}
+}
+
+func TestCommandCacheRefreshesWhenConfigurationChanges(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "commands.conf")
+	if err := os.WriteFile(configPath, []byte("first"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	calls := 0
+	listCommands := func() map[string]CommandInfo {
+		calls++
+		return map[string]CommandInfo{"test": {Description: "test"}}
+	}
+	cacheKey := "test:" + dir
+
+	getCachedCommands(cacheKey, filesFingerprint(configPath), listCommands)
+	getCachedCommands(cacheKey, filesFingerprint(configPath), listCommands)
+	if calls != 1 {
+		t.Fatalf("list function called %d times before change, want 1", calls)
+	}
+
+	if err := os.WriteFile(configPath, []byte("second"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	getCachedCommands(cacheKey, filesFingerprint(configPath), listCommands)
+	if calls != 2 {
+		t.Fatalf("list function called %d times after change, want 2", calls)
+	}
+}

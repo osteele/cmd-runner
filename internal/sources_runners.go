@@ -24,7 +24,8 @@ func NewMiseSource(dir string) CommandSource {
 }
 
 func (m *MiseSource) ListCommands() map[string]CommandInfo {
-	return getCachedCommands(m.cacheKey(), func() map[string]CommandInfo {
+	configPath := filepath.Join(m.dir, ".mise.toml")
+	return getCachedCommands(m.cacheKey(), filesFingerprint(configPath), func() map[string]CommandInfo {
 		commands := make(map[string]CommandInfo)
 
 		testCmd := exec.Command("mise", "tasks", "ls")
@@ -86,7 +87,9 @@ func NewJustSource(dir string) CommandSource {
 }
 
 func (j *JustSource) ListCommands() map[string]CommandInfo {
-	return getCachedCommands(j.cacheKey(), func() map[string]CommandInfo {
+	justfile := filepath.Join(j.dir, "justfile")
+	alternateJustfile := filepath.Join(j.dir, "Justfile")
+	return getCachedCommands(j.cacheKey(), filesFingerprint(justfile, alternateJustfile), func() map[string]CommandInfo {
 		commands := make(map[string]CommandInfo)
 
 		testCmd := exec.Command("just", "--list")
@@ -148,7 +151,9 @@ func NewMakeSource(dir string) CommandSource {
 }
 
 func (m *MakeSource) ListCommands() map[string]CommandInfo {
-	return getCachedCommands(m.cacheKey(), func() map[string]CommandInfo {
+	makefile := filepath.Join(m.dir, "Makefile")
+	alternateMakefile := filepath.Join(m.dir, "makefile")
+	return getCachedCommands(m.cacheKey(), filesFingerprint(makefile, alternateMakefile), func() map[string]CommandInfo {
 		commands := make(map[string]CommandInfo)
 
 		makefiles := []string{"Makefile", "makefile"}

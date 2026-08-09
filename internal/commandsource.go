@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,31 +21,53 @@ type CommandInfo struct {
 // Key format: "sourceName:directory"
 var commandListCache = struct {
 	sync.RWMutex
-	data map[string]map[string]CommandInfo
-}{data: make(map[string]map[string]CommandInfo)}
+	data map[string]commandCacheEntry
+}{data: make(map[string]commandCacheEntry)}
+
+type commandCacheEntry struct {
+	fingerprint string
+	commands    map[string]CommandInfo
+}
 
 // getCachedCommands retrieves cached commands or executes the list function
-func getCachedCommands(cacheKey string, listFunc func() map[string]CommandInfo) map[string]CommandInfo {
+func getCachedCommands(cacheKey, fingerprint string, listFunc func() map[string]CommandInfo) map[string]CommandInfo {
 	// Try to read from cache first
 	commandListCache.RLock()
-	if cached, exists := commandListCache.data[cacheKey]; exists {
+	if cached, exists := commandListCache.data[cacheKey]; exists && cached.fingerprint == fingerprint {
 		commandListCache.RUnlock()
-		return cached
+		return cached.commands
 	}
 	commandListCache.RUnlock()
 
-	// Cache miss - acquire write lock and double-check
-	commandListCache.Lock()
-	if cached, exists := commandListCache.data[cacheKey]; exists {
-		commandListCache.Unlock()
-		return cached
-	}
-
+	// Do not hold the cache lock while invoking an external command.
 	commands := listFunc()
-	commandListCache.data[cacheKey] = commands
+	commandListCache.Lock()
+	if cached, exists := commandListCache.data[cacheKey]; exists && cached.fingerprint == fingerprint {
+		commandListCache.Unlock()
+		return cached.commands
+	}
+	commandListCache.data[cacheKey] = commandCacheEntry{fingerprint: fingerprint, commands: commands}
 	commandListCache.Unlock()
 
 	return commands
+}
+
+// filesFingerprint returns a content-based fingerprint for the files that
+// determine a source's command list. Missing files are included in the result,
+// so creating or removing a configuration file also invalidates the cache.
+func filesFingerprint(paths ...string) string {
+	hash := sha256.New()
+	for _, path := range paths {
+		fmt.Fprintf(hash, "%s\x00", path)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Fprintf(hash, "error:%v\x00", err)
+			continue
+		}
+		_, _ = hash.Write(data)
+		_, _ = hash.Write([]byte{0})
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 // CommandSource represents a source of commands (mise, just, make, package.json, etc.)

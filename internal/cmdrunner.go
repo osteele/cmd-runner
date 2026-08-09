@@ -153,8 +153,9 @@ func (r *CommandRunner) ListCommands() {
 
 // ListCommandsWithOptions shows available commands with configurable options
 func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
-	fmt.Println("Available commands for this project:")
-	fmt.Println()
+	stdout := r.stdoutWriter()
+	fmt.Fprintln(stdout, "Available commands for this project:")
+	fmt.Fprintln(stdout)
 
 	// Core commands we always want to show if they exist
 	coreCommands := map[string]bool{
@@ -181,7 +182,7 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 			}
 			// If showing all sources, or if current dir had no commands, show project root
 			if showAll || sourcesShown == 0 {
-				fmt.Printf("\nFrom project root (%s):\n", relPath)
+				fmt.Fprintf(stdout, "\nFrom project root (%s):\n", relPath)
 			} else {
 				// Skip project root if we already showed commands from current dir
 				continue
@@ -216,7 +217,7 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 
 			// Only show source if it has commands
 			if len(core) > 0 || len(additional) > 0 {
-				fmt.Printf("\n%s commands:\n", source.Name())
+				fmt.Fprintf(stdout, "\n%s commands:\n", source.Name())
 				sourcesShown++
 
 				// Show core commands first
@@ -232,7 +233,7 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 				// Show additional commands
 				if len(additional) > 0 {
 					if len(core) > 0 {
-						fmt.Println() // Add spacing between core and additional
+						fmt.Fprintln(stdout) // Add spacing between core and additional
 					}
 					for _, cmd := range sortCommands(additional) {
 						if !shown[cmd] {
@@ -282,21 +283,25 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 	}
 
 	if len(synthToShow) > 0 {
-		fmt.Println("\nSynthesized commands (provided by cmd-runner):")
+		fmt.Fprintln(stdout, "\nSynthesized commands (provided by cmd-runner):")
 		for _, cmd := range sortCommands(synthToShow) {
 			r.printCommand(cmd, synthToShow[cmd], verbose)
 		}
 	}
 
-	fmt.Println("\nCommand aliases:")
-	fmt.Println("  f  → format     t  → test       tc → typecheck")
-	fmt.Println("  r  → run        s  → serve      b  → build")
-	fmt.Println("  l  → lint")
+	fmt.Fprintln(stdout, "\nCommand aliases:")
+	fmt.Fprintln(stdout, "  f  → format     t  → test       tc → typecheck")
+	fmt.Fprintln(stdout, "  r  → run        s  → serve      b  → build")
+	fmt.Fprintln(stdout, "  l  → lint")
 }
 
 // getTerminalWidth returns the terminal width, defaulting to 80 if it can't be determined
-func getTerminalWidth() int {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+func getTerminalWidth(writer io.Writer) int {
+	file, ok := writer.(*os.File)
+	if !ok {
+		return 80
+	}
+	width, _, err := term.GetSize(int(file.Fd()))
 	if err != nil {
 		return 80 // Default width
 	}
@@ -305,13 +310,14 @@ func getTerminalWidth() int {
 
 // printCommand prints a command with optional verbose description
 func (r *CommandRunner) printCommand(cmd string, info CommandInfo, verbose bool) {
+	stdout := r.stdoutWriter()
 	if verbose {
 		// Show both description and execution command
-		fmt.Printf("  %-12s → %s\n", cmd, info.Description)
-		fmt.Printf("  %-12s   (runs: %s)\n", "", info.Execution)
+		fmt.Fprintf(stdout, "  %-12s → %s\n", cmd, info.Description)
+		fmt.Fprintf(stdout, "  %-12s   (runs: %s)\n", "", info.Execution)
 	} else {
 		// Calculate available space for description
-		termWidth := getTerminalWidth()
+		termWidth := getTerminalWidth(stdout)
 		// Account for: "  " (2) + command (12) + " → " (3) = 17 chars of overhead
 		availableWidth := termWidth - 17
 		if availableWidth < 20 {
@@ -322,7 +328,7 @@ func (r *CommandRunner) printCommand(cmd string, info CommandInfo, verbose bool)
 		if len(desc) > availableWidth {
 			desc = desc[:availableWidth-3] + "..."
 		}
-		fmt.Printf("  %-12s → %s\n", cmd, desc)
+		fmt.Fprintf(stdout, "  %-12s → %s\n", cmd, desc)
 	}
 }
 

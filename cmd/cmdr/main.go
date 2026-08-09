@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -10,69 +11,75 @@ import (
 	"github.com/osteele/cmd-runner/internal"
 )
 
-func showHelp() {
-	fmt.Fprintf(os.Stderr, "cmd-runner %s - Smart command runner for multiple build systems\n\n", currentVersion())
-	fmt.Fprintf(os.Stderr, "Usage: cmdr [OPTIONS] [command] [args...]\n")
-	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "When run without arguments, shows available commands (same as --list).\n")
-	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "Options:\n")
-	fmt.Fprintf(os.Stderr, "  --interactive, -i       Launch interactive mode for command selection\n")
-	fmt.Fprintf(os.Stderr, "  --list, -l              List available commands for current project\n")
-	fmt.Fprintf(os.Stderr, "    --all                 Show commands from all sources (not just primary)\n")
-	fmt.Fprintf(os.Stderr, "    --verbose             Show full command descriptions\n")
-	fmt.Fprintf(os.Stderr, "  --version, -v           Show version information\n")
-	fmt.Fprintf(os.Stderr, "  --help, -h              Show this help message\n")
-	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "Special Commands:\n")
-	fmt.Fprintf(os.Stderr, "  install-alias [--dry-run]  Install 'cr' alias to shell config\n")
-	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "Common Commands:\n")
-	fmt.Fprintf(os.Stderr, "  setup      Install dependencies for local development\n")
-	fmt.Fprintf(os.Stderr, "  install    Install binary/package globally\n")
-	fmt.Fprintf(os.Stderr, "  test       Run tests\n")
-	fmt.Fprintf(os.Stderr, "  build      Build the project\n")
-	fmt.Fprintf(os.Stderr, "  run        Run the project (or dev/serve)\n")
-	fmt.Fprintf(os.Stderr, "  format     Format code (or fmt)\n")
-	fmt.Fprintf(os.Stderr, "  lint       Run linters\n")
-	fmt.Fprintf(os.Stderr, "  typecheck  Run type checker\n")
-	fmt.Fprintf(os.Stderr, "  check      Run lint, typecheck, and test\n")
-	fmt.Fprintf(os.Stderr, "  clean      Clean build artifacts\n")
-	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "Short Aliases:\n")
-	fmt.Fprintf(os.Stderr, "  f → format    t → test     tc → typecheck\n")
-	fmt.Fprintf(os.Stderr, "  r → run       s → serve    b  → build\n")
-	fmt.Fprintf(os.Stderr, "  l → lint\n")
-	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "See full documentation: https://github.com/osteele/cmd-runner\n")
+var runInteractive = internal.RunInteractive
+
+func showHelp(stderr io.Writer) {
+	fmt.Fprintf(stderr, "cmd-runner %s - Smart command runner for multiple build systems\n\n", currentVersion())
+	fmt.Fprintln(stderr, "Usage: cmdr [OPTIONS] [command] [args...]")
+	fmt.Fprintln(stderr)
+	fmt.Fprintln(stderr, "When run without arguments, shows available commands (same as --list).")
+	fmt.Fprintln(stderr)
+	fmt.Fprintln(stderr, "Options:")
+	fmt.Fprintln(stderr, "  --interactive, -i       Launch interactive mode for command selection")
+	fmt.Fprintln(stderr, "  --list, -l              List available commands for current project")
+	fmt.Fprintln(stderr, "    --all                 Show commands from all sources (not just primary)")
+	fmt.Fprintln(stderr, "    --verbose             Show full command descriptions")
+	fmt.Fprintln(stderr, "  --version, -v           Show version information")
+	fmt.Fprintln(stderr, "  --help, -h              Show this help message")
+	fmt.Fprintln(stderr)
+	fmt.Fprintln(stderr, "Special Commands:")
+	fmt.Fprintln(stderr, "  install-alias [--dry-run]  Install 'cr' alias to shell config")
+	fmt.Fprintln(stderr)
+	fmt.Fprintln(stderr, "Common Commands:")
+	fmt.Fprintln(stderr, "  setup      Install dependencies for local development")
+	fmt.Fprintln(stderr, "  install    Install binary/package globally")
+	fmt.Fprintln(stderr, "  test       Run tests")
+	fmt.Fprintln(stderr, "  build      Build the project")
+	fmt.Fprintln(stderr, "  run        Run the project (or dev/serve)")
+	fmt.Fprintln(stderr, "  format     Format code (or fmt)")
+	fmt.Fprintln(stderr, "  lint       Run linters")
+	fmt.Fprintln(stderr, "  typecheck  Run type checker")
+	fmt.Fprintln(stderr, "  check      Run lint, typecheck, and test")
+	fmt.Fprintln(stderr, "  clean      Clean build artifacts")
+	fmt.Fprintln(stderr)
+	fmt.Fprintln(stderr, "Short Aliases:")
+	fmt.Fprintln(stderr, "  f → format    t → test     tc → typecheck")
+	fmt.Fprintln(stderr, "  r → run       s → serve    b  → build")
+	fmt.Fprintln(stderr, "  l → lint")
+	fmt.Fprintln(stderr)
+	fmt.Fprintln(stderr, "See full documentation: https://github.com/osteele/cmd-runner")
 }
 
-func showVersion() {
-	fmt.Printf("cmdr version %s\n", currentVersion())
+func showVersion(stdout io.Writer) {
+	fmt.Fprintf(stdout, "cmdr version %s\n", currentVersion())
 }
 
 func main() {
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+}
+
+func run(cliArgs []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// Parse arguments
-	if len(os.Args) < 2 {
+	if len(cliArgs) == 0 {
 		// No arguments - show command list
 		runner := internal.New("", nil)
+		runner.Stdin, runner.Stdout, runner.Stderr = stdin, stdout, stderr
 		if err := runner.Init(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error initializing: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(stderr, "Error initializing: %v\n", err)
+			return 1
 		}
 		runner.ListCommands()
-		os.Exit(0)
+		return 0
 	}
 
 	preCommandFlags := []string{}
 	command := ""
 	commandIndex := -1
 
-	for i := 1; i < len(os.Args); i++ {
-		arg := os.Args[i]
+	for i, arg := range cliArgs {
 		if arg == "--" {
-			if i+1 < len(os.Args) {
-				command = os.Args[i+1]
+			if i+1 < len(cliArgs) {
+				command = cliArgs[i+1]
 				commandIndex = i + 1
 			}
 			break
@@ -102,87 +109,88 @@ func main() {
 	for _, flag := range preCommandFlags {
 		switch flag {
 		case "--interactive", "-i":
-			if err := internal.RunInteractive(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+			if err := runInteractive(); err != nil {
+				fmt.Fprintf(stderr, "Error: %v\n", err)
+				return 1
 			}
-			os.Exit(0)
+			return 0
 		case "--help", "-h":
 			showHelpFlag = true
 		case "--version", "-v":
-			showVersion()
-			os.Exit(0)
+			showVersion(stdout)
+			return 0
 		case "--list", "-l", "--commands":
 			// processed after loop
 		case "--all", "-a", "--list-all":
 			if !listRequested {
-				fmt.Fprintf(os.Stderr, "Unknown option: %s\n", flag)
-				fmt.Fprintf(os.Stderr, "Try 'cmdr --help' for more information.\n")
-				os.Exit(1)
+				fmt.Fprintf(stderr, "Unknown option: %s\n", flag)
+				fmt.Fprintln(stderr, "Try 'cmdr --help' for more information.")
+				return 1
 			}
 			listAll = true
 		case "--verbose":
 			if !listRequested {
-				fmt.Fprintf(os.Stderr, "Unknown option: %s\n", flag)
-				fmt.Fprintf(os.Stderr, "Try 'cmdr --help' for more information.\n")
-				os.Exit(1)
+				fmt.Fprintf(stderr, "Unknown option: %s\n", flag)
+				fmt.Fprintln(stderr, "Try 'cmdr --help' for more information.")
+				return 1
 			}
 			verbose = true
 		default:
-			fmt.Fprintf(os.Stderr, "Unknown option: %s\n", flag)
-			fmt.Fprintf(os.Stderr, "Try 'cmdr --help' for more information.\n")
-			os.Exit(1)
+			fmt.Fprintf(stderr, "Unknown option: %s\n", flag)
+			fmt.Fprintln(stderr, "Try 'cmdr --help' for more information.")
+			return 1
 		}
 	}
 
 	if showHelpFlag && !listRequested {
-		showHelp()
-		os.Exit(0)
+		showHelp(stderr)
+		return 0
 	}
 
 	if listRequested && command == "" {
 		if showHelpFlag {
-			fmt.Fprintf(os.Stderr, "Usage: cmdr --list [OPTIONS]\n")
-			fmt.Fprintf(os.Stderr, "\n")
-			fmt.Fprintf(os.Stderr, "List available commands for the current project.\n")
-			fmt.Fprintf(os.Stderr, "\n")
-			fmt.Fprintf(os.Stderr, "Options:\n")
-			fmt.Fprintf(os.Stderr, "  --all, -a      Show commands from all sources (not just primary)\n")
-			fmt.Fprintf(os.Stderr, "  --verbose      Show full command descriptions (no truncation)\n")
-			fmt.Fprintf(os.Stderr, "  --help, -h     Show this help message\n")
-			fmt.Fprintf(os.Stderr, "\n")
-			fmt.Fprintf(os.Stderr, "By default, only commands from the primary source (e.g., mise, just, make)\n")
-			fmt.Fprintf(os.Stderr, "are shown with descriptions truncated to fit the terminal width.\n")
-			os.Exit(0)
+			fmt.Fprintln(stderr, "Usage: cmdr --list [OPTIONS]")
+			fmt.Fprintln(stderr)
+			fmt.Fprintln(stderr, "List available commands for the current project.")
+			fmt.Fprintln(stderr)
+			fmt.Fprintln(stderr, "Options:")
+			fmt.Fprintln(stderr, "  --all, -a      Show commands from all sources (not just primary)")
+			fmt.Fprintln(stderr, "  --verbose      Show full command descriptions (no truncation)")
+			fmt.Fprintln(stderr, "  --help, -h     Show this help message")
+			fmt.Fprintln(stderr)
+			fmt.Fprintln(stderr, "By default, only commands from the primary source (e.g., mise, just, make)")
+			fmt.Fprintln(stderr, "are shown with descriptions truncated to fit the terminal width.")
+			return 0
 		}
 
 		runner := internal.New("", nil)
+		runner.Stdin, runner.Stdout, runner.Stderr = stdin, stdout, stderr
 		if err := runner.Init(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error initializing: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(stderr, "Error initializing: %v\n", err)
+			return 1
 		}
 		runner.ListCommandsWithOptions(listAll, verbose)
-		os.Exit(0)
+		return 0
 	}
 
 	if listRequested && command != "" {
-		fmt.Fprintf(os.Stderr, "The --list flag must appear without a command.\n")
-		os.Exit(1)
+		fmt.Fprintln(stderr, "The --list flag must appear without a command.")
+		return 1
 	}
 
 	if command == "" {
 		if showHelpFlag {
-			showHelp()
-			os.Exit(0)
+			showHelp(stderr)
+			return 0
 		}
-		showHelp()
-		os.Exit(1)
+		showHelp(stderr)
+		return 1
 	}
 
 	// We have a command - pass all args after it unchanged
 	args := []string{}
-	if commandIndex >= 0 && commandIndex+1 < len(os.Args) {
-		args = os.Args[commandIndex+1:]
+	if commandIndex >= 0 && commandIndex+1 < len(cliArgs) {
+		args = cliArgs[commandIndex+1:]
 	}
 
 	// Handle special commands
@@ -194,27 +202,29 @@ func main() {
 				break
 			}
 		}
-		if err := installAlias(dryRun); err != nil {
-			fmt.Fprintf(os.Stderr, "Error installing alias: %v\n", err)
-			os.Exit(1)
+		if err := installAlias(dryRun, stdout, stderr); err != nil {
+			fmt.Fprintf(stderr, "Error installing alias: %v\n", err)
+			return 1
 		}
-		return
+		return 0
 	}
 
 	runner := internal.New(command, args)
+	runner.Stdin, runner.Stdout, runner.Stderr = stdin, stdout, stderr
 
 	if err := runner.Init(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error initializing: %v\n", err)
+		return 1
 	}
 
 	if err := runner.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
 	}
+	return 0
 }
 
-func installAlias(dryRun bool) error {
+func installAlias(dryRun bool, stdout, stderr io.Writer) error {
 	// Determine which shell config file to use
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -277,20 +287,20 @@ func installAlias(dryRun bool) error {
 		aliasPattern := regexp.MustCompile(`(?m)^\s*alias\s+cr=cmdr\s*$`)
 		if aliasPattern.Match(content) {
 			if dryRun {
-				fmt.Printf("[DRY RUN] Alias 'cr' is already installed in %s\n", targetFile)
+				fmt.Fprintf(stdout, "[DRY RUN] Alias 'cr' is already installed in %s\n", targetFile)
 			} else {
-				fmt.Printf("Alias 'cr' is already installed in %s\n", targetFile)
+				fmt.Fprintf(stdout, "Alias 'cr' is already installed in %s\n", targetFile)
 			}
 			return nil
 		}
 	}
 
 	if dryRun {
-		fmt.Println("[DRY RUN] Would perform the following actions:")
-		fmt.Printf("  - Add alias to: %s\n", targetFile)
-		fmt.Printf("  - Add line: %s\n", aliasLine)
+		fmt.Fprintln(stdout, "[DRY RUN] Would perform the following actions:")
+		fmt.Fprintf(stdout, "  - Add alias to: %s\n", targetFile)
+		fmt.Fprintf(stdout, "  - Add line: %s\n", aliasLine)
 		if !internal.FileExists(targetFile) {
-			fmt.Printf("  - Create new file: %s\n", targetFile)
+			fmt.Fprintf(stdout, "  - Create new file: %s\n", targetFile)
 		}
 		return nil
 	}
@@ -302,7 +312,7 @@ func installAlias(dryRun bool) error {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to close file: %v\n", closeErr)
+			fmt.Fprintf(stderr, "Warning: failed to close file: %v\n", closeErr)
 		}
 	}()
 
@@ -312,8 +322,8 @@ func installAlias(dryRun bool) error {
 		return fmt.Errorf("failed to write to %s: %w", targetFile, err)
 	}
 
-	fmt.Printf("Successfully added 'cr' alias to %s\n", targetFile)
-	fmt.Println("To use it immediately, run: source " + targetFile)
-	fmt.Println("Or start a new terminal session.")
+	fmt.Fprintf(stdout, "Successfully added 'cr' alias to %s\n", targetFile)
+	fmt.Fprintln(stdout, "To use it immediately, run: source "+targetFile)
+	fmt.Fprintln(stdout, "Or start a new terminal session.")
 	return nil
 }
