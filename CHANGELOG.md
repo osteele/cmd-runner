@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade `golang.org/x/term` to 0.29.0 and `golang.org/x/sys` to 0.30.0 while preserving Go 1.21 compatibility
+
 ### Fixed
 
 - Prefer exact commands across all sources before expanding aliases
