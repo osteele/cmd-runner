@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -60,15 +62,7 @@ func (n *nodeBaseSource) FindCommand(command string, args []string) *exec.Cmd {
 		return nil
 	}
 
-	// Check if script exists
-	var scriptExists bool
-	for _, variant := range GetCommandVariants(command) {
-		if _, ok := scripts[variant]; ok {
-			command = variant
-			scriptExists = true
-			break
-		}
-	}
+	_, scriptExists := scripts[command]
 
 	// Special handling for setup command
 	if !scriptExists && command == "setup" && n.packageManager != "deno" {
@@ -244,85 +238,106 @@ func NewDenoSource(dir string) CommandSource {
 func (d *DenoSource) ListCommands() map[string]CommandInfo {
 	commands := make(map[string]CommandInfo)
 
-	// Check if there's a package.json (Deno can use it)
-	if FileExists(filepath.Join(d.dir, "package.json")) {
-		if scripts, err := parsePackageJsonScripts(d.dir); err == nil {
-			for script, content := range scripts {
-				commands[script] = CommandInfo{
-					Description: content,
-					Execution:   "deno task " + script,
-				}
-			}
+	for task, description := range d.listTasks() {
+		commands[task] = CommandInfo{
+			Description: description,
+			Execution:   "deno task " + task,
 		}
 	}
 
 	// Add standard Deno commands
-	commands["run"] = CommandInfo{Description: "Run a script", Execution: "deno run"}
-	commands["test"] = CommandInfo{Description: "Run tests", Execution: "deno test"}
-	commands["lint"] = CommandInfo{Description: "Run linter", Execution: "deno lint"}
-	commands["format"] = CommandInfo{Description: "Format code", Execution: "deno fmt"}
-	commands["check"] = CommandInfo{Description: "Type-check code", Execution: "deno check"}
-	commands["build"] = CommandInfo{Description: "Compile to executable", Execution: "deno compile"}
+	builtins := map[string]CommandInfo{
+		"run":       {Description: "Run a script", Execution: "deno run"},
+		"test":      {Description: "Run tests", Execution: "deno test"},
+		"lint":      {Description: "Run linter", Execution: "deno lint"},
+		"format":    {Description: "Format code", Execution: "deno fmt"},
+		"typecheck": {Description: "Type-check code", Execution: "deno check"},
+		"check":     {Description: "Type-check code", Execution: "deno check"},
+		"build":     {Description: "Compile to executable", Execution: "deno compile"},
+	}
+	for command, info := range builtins {
+		if _, exists := commands[command]; !exists {
+			commands[command] = info
+		}
+	}
 
 	return commands
 }
 
 func (d *DenoSource) FindCommand(command string, args []string) *exec.Cmd {
+	if _, exists := d.listTasks()[command]; exists {
+		cmdArgs := append([]string{"task", command}, args...)
+		cmd := exec.Command("deno", cmdArgs...)
+		cmd.Dir = d.dir
+		return cmd
+	}
+
 	// Deno built-in commands
 	denoCommands := map[string]string{
 		"run":       "run",
-		"dev":       "run",
-		"start":     "run",
 		"test":      "test",
 		"lint":      "lint",
 		"format":    "fmt",
-		"fmt":       "fmt",
 		"typecheck": "check",
-		"tc":        "check",
 		"check":     "check",
 		"build":     "compile",
 		"install":   "install",
 	}
 
-	for _, variant := range GetCommandVariants(command) {
-		if denoCmd, ok := denoCommands[variant]; ok {
-			// For run commands, try to find the main file
-			if denoCmd == "run" {
-				// Look for common entry points
-				for _, entry := range []string{"main.ts", "main.js", "mod.ts", "mod.js", "index.ts", "index.js"} {
-					if FileExists(filepath.Join(d.dir, entry)) {
-						cmdArgs := append([]string{"run", "--allow-all", entry}, args...)
-						cmd := exec.Command("deno", cmdArgs...)
-						cmd.Dir = d.dir
-						return cmd
-					}
-				}
-			}
-			cmdArgs := append([]string{denoCmd}, args...)
-			cmd := exec.Command("deno", cmdArgs...)
-			cmd.Dir = d.dir
-			return cmd
-		}
-	}
-
-	// Check if there's a task defined in deno.json
-	if FileExists(filepath.Join(d.dir, "deno.json")) || FileExists(filepath.Join(d.dir, "deno.jsonc")) {
-		testCmd := exec.Command("deno", "task", "--list")
-		testCmd.Dir = d.dir
-		output, err := testCmd.Output()
-		if err == nil {
-			taskList := string(output)
-			for _, variant := range GetCommandVariants(command) {
-				if strings.Contains(taskList, variant) {
-					cmdArgs := append([]string{"task", variant}, args...)
+	if denoCmd, ok := denoCommands[command]; ok {
+		// For run commands, try to find the main file
+		if denoCmd == "run" {
+			// Look for common entry points
+			for _, entry := range []string{"main.ts", "main.js", "mod.ts", "mod.js", "index.ts", "index.js"} {
+				if FileExists(filepath.Join(d.dir, entry)) {
+					cmdArgs := append([]string{"run", "--allow-all", entry}, args...)
 					cmd := exec.Command("deno", cmdArgs...)
 					cmd.Dir = d.dir
 					return cmd
 				}
 			}
 		}
+		cmdArgs := append([]string{denoCmd}, args...)
+		cmd := exec.Command("deno", cmdArgs...)
+		cmd.Dir = d.dir
+		return cmd
 	}
 
 	return nil
 }
 
+func (d *DenoSource) listTasks() map[string]string {
+	tasks := make(map[string]string)
+	if FileExists(filepath.Join(d.dir, "package.json")) {
+		if scripts, err := parsePackageJsonScripts(d.dir); err == nil {
+			for name, command := range scripts {
+				tasks[name] = command
+			}
+		}
+	}
+	if data, err := os.ReadFile(filepath.Join(d.dir, "deno.json")); err == nil {
+		var config struct {
+			Tasks map[string]string `json:"tasks"`
+		}
+		if json.Unmarshal(data, &config) == nil {
+			for name, command := range config.Tasks {
+				tasks[name] = command
+			}
+			return tasks
+		}
+	}
+
+	listCmd := exec.Command("deno", "task", "--list")
+	listCmd.Dir = d.dir
+	output, err := listCmd.Output()
+	if err != nil {
+		return tasks
+	}
+	for _, line := range strings.Split(string(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] != "Available" {
+			tasks[fields[0]] = strings.TrimSpace(strings.TrimPrefix(line, fields[0]))
+		}
+	}
+	return tasks
+}

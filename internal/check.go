@@ -39,7 +39,7 @@ func (r *CommandRunner) synthesizeCheckCommand() error {
 		return fmt.Errorf("no check, lint, typecheck, or test commands found")
 	}
 
-	fmt.Fprintf(os.Stderr, "Running check (synthesizing from available commands)...\n")
+	fmt.Fprintf(r.stderrWriter(), "Running check (synthesizing from available commands)...\n")
 
 	for _, cmdName := range commands {
 		// Skip typecheck if it doesn't exist for this project type
@@ -51,18 +51,22 @@ func (r *CommandRunner) synthesizeCheckCommand() error {
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "\n→ Running %s...\n", cmdName)
+		fmt.Fprintf(r.stderrWriter(), "\n→ Running %s...\n", cmdName)
 		subRunner := &CommandRunner{
 			Command:     cmdName,
 			Args:        r.Args,
 			CurrentDir:  r.CurrentDir,
 			ProjectRoot: r.ProjectRoot,
+			Stdin:       r.Stdin,
+			Stdout:      r.Stdout,
+			Stderr:      r.Stderr,
+			projects:    r.resolveProjects(),
 		}
 
 		if err := subRunner.Run(); err != nil {
 			hasErrors = true
 			failedCommands = append(failedCommands, cmdName)
-			fmt.Fprintf(os.Stderr, "  ✗ %s failed: %v\n", cmdName, err)
+			fmt.Fprintf(r.stderrWriter(), "  ✗ %s failed: %v\n", cmdName, err)
 		}
 	}
 
@@ -89,14 +93,15 @@ func (r *CommandRunner) findNativeCheckCommand(project *Project) *exec.Cmd {
 
 // hasCommand checks if a command exists in any runner
 func (r *CommandRunner) hasCommand(command string) bool {
-	for _, project := range r.resolveProjects() {
-		for _, source := range project.CommandSources {
-			if cmd := source.FindCommand(command, []string{}); cmd != nil {
-				return true
-			}
-		}
-	}
-	return false
+	return r.findCommand(command, nil) != nil
+}
+
+func (r *CommandRunner) canSynthesizeCheck() bool {
+	return r.hasCommand("lint") || r.hasCommand("typecheck") || r.hasCommand("test")
+}
+
+func (r *CommandRunner) canSynthesizeFix() bool {
+	return r.hasCommand("format") || (r.supportsLintFix() && r.hasCommand("lint"))
 }
 
 // hasListedCommand reports whether any source explicitly lists one of the

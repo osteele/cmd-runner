@@ -36,12 +36,10 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 		// TypeScript projects - use tsc
 		if FileExists(filepath.Join(dir, "tsconfig.json")) {
 			packageManager := nodePackageManagerName(project)
-			if packageManager != "" {
-				fmt.Fprintf(os.Stderr, "Running typecheck using tsc...\n")
-				cmd := r.createTypescriptCheckCommand(dir, packageManager)
-				if cmd != nil {
-					return r.ExecuteCommand(cmd)
-				}
+			fmt.Fprintf(r.stderrWriter(), "Running typecheck using tsc...\n")
+			cmd := r.createTypescriptCheckCommand(dir, packageManager)
+			if cmd != nil {
+				return r.ExecuteCommand(cmd)
 			}
 		}
 
@@ -74,7 +72,7 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 				default:
 					execCmd = exec.Command("pyright", r.Args...)
 				}
-				fmt.Fprintf(os.Stderr, "Running typecheck using pyright...\n")
+				fmt.Fprintf(r.stderrWriter(), "Running typecheck using pyright...\n")
 			} else if strings.Contains(content, "mypy") {
 				switch packageManager {
 				case "uv":
@@ -87,7 +85,7 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 					cmdArgs := append([]string{"."}, r.Args...)
 					execCmd = exec.Command("mypy", cmdArgs...)
 				}
-				fmt.Fprintf(os.Stderr, "Running typecheck using mypy...\n")
+				fmt.Fprintf(r.stderrWriter(), "Running typecheck using mypy...\n")
 			}
 
 			if execCmd != nil {
@@ -98,7 +96,7 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 
 		// Rust projects - use cargo check
 		if FileExists(filepath.Join(dir, "Cargo.toml")) {
-			fmt.Fprintf(os.Stderr, "Running typecheck using cargo check...\n")
+			fmt.Fprintf(r.stderrWriter(), "Running typecheck using cargo check...\n")
 			if cargoSource := findSourceByName(project.CommandSources, "Cargo"); cargoSource != nil {
 				if cargoCmd := cargoSource.FindCommand("typecheck", r.Args); cargoCmd != nil {
 					return r.ExecuteCommand(cargoCmd)
@@ -108,7 +106,7 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 
 		// Go projects - use go build
 		if FileExists(filepath.Join(dir, "go.mod")) {
-			fmt.Fprintf(os.Stderr, "Running typecheck using go build...\n")
+			fmt.Fprintf(r.stderrWriter(), "Running typecheck using go build...\n")
 			if goSource := findSourceByName(project.CommandSources, "Go"); goSource != nil {
 				if goCmd := goSource.FindCommand("typecheck", r.Args); goCmd != nil {
 					return r.ExecuteCommand(goCmd)

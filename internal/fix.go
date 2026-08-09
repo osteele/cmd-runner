@@ -43,8 +43,7 @@ func (r *CommandRunner) synthesizeFixCommand() error {
 	}
 
 	var foundAny bool
-	var executedCommands []string
-	var hasErrors bool
+	var failedCommands []string
 
 	// First check if any fix-related commands are available
 	for _, fc := range fixCommands {
@@ -57,7 +56,7 @@ func (r *CommandRunner) synthesizeFixCommand() error {
 		return fmt.Errorf("no fix, format, or lint commands found")
 	}
 
-	fmt.Fprintf(os.Stderr, "Running fix (synthesizing from available commands)...\n")
+	fmt.Fprintf(r.stderrWriter(), "Running fix (synthesizing from available commands)...\n")
 
 	// Track what we've already run to avoid duplicates
 	executedTypes := make(map[string]bool)
@@ -77,21 +76,24 @@ func (r *CommandRunner) synthesizeFixCommand() error {
 			cmdDisplay = fmt.Sprintf("%s %s", fc.command, strings.Join(fc.args, " "))
 		}
 
-		fmt.Fprintf(os.Stderr, "\n→ Running %s...\n", cmdDisplay)
+		fmt.Fprintf(r.stderrWriter(), "\n→ Running %s...\n", cmdDisplay)
 
 		tempRunner := &CommandRunner{
 			Command:     fc.command,
 			Args:        append(fc.args, r.Args...),
 			CurrentDir:  r.CurrentDir,
 			ProjectRoot: r.ProjectRoot,
+			Stdin:       r.Stdin,
+			Stdout:      r.Stdout,
+			Stderr:      r.Stderr,
+			projects:    r.resolveProjects(),
 		}
 
 		if err := tempRunner.Run(); err != nil {
 			// For fix commands, we often want to continue even if one fails
-			hasErrors = true
-			fmt.Fprintf(os.Stderr, "  ✗ %s failed: %v\n", cmdDisplay, err)
+			failedCommands = append(failedCommands, cmdDisplay)
+			fmt.Fprintf(r.stderrWriter(), "  ✗ %s failed: %v\n", cmdDisplay, err)
 		} else {
-			executedCommands = append(executedCommands, cmdDisplay)
 			// Mark format as executed for both format and fmt commands
 			if fc.command == "format" || fc.command == "fmt" {
 				executedTypes["format"] = true
@@ -99,8 +101,8 @@ func (r *CommandRunner) synthesizeFixCommand() error {
 		}
 	}
 
-	if len(executedCommands) == 0 && hasErrors {
-		return fmt.Errorf("fix failed: no commands succeeded")
+	if len(failedCommands) > 0 {
+		return fmt.Errorf("fix failed: %s", strings.Join(failedCommands, ", "))
 	}
 
 	return nil

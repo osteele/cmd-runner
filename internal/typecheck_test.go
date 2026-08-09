@@ -89,6 +89,8 @@ name = "test"`
 }
 
 func TestSynthesizeTypecheckCommand(t *testing.T) {
+	installTypecheckTestCommands(t)
+
 	tests := []struct {
 		name          string
 		setupFunc     func(dir string)
@@ -154,10 +156,6 @@ strict = true`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Skip tests that require external commands (tsc, pyright, etc.)
-			// These would fail in CI without the tools installed
-			t.Skip("Skipping integration test that requires external tools")
-
 			tempDir := t.TempDir()
 			tt.setupFunc(tempDir)
 
@@ -183,6 +181,8 @@ strict = true`
 }
 
 func TestHandleTypecheckCommand(t *testing.T) {
+	installTypecheckTestCommands(t)
+
 	tests := []struct {
 		name          string
 		setupFunc     func(dir string)
@@ -248,9 +248,6 @@ strict = ["src"]`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Skip tests that require external commands
-			t.Skip("Skipping integration test that requires external tools")
-
 			tempDir := t.TempDir()
 			tt.setupFunc(tempDir)
 
@@ -273,4 +270,16 @@ strict = ["src"]`
 			}
 		})
 	}
+}
+
+func installTypecheckTestCommands(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	for _, name := range []string{"cargo", "go", "mypy", "npx", "poetry", "pyright", "uv"} {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }

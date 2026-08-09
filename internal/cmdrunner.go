@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,9 @@ type CommandRunner struct {
 	Args        []string
 	CurrentDir  string
 	ProjectRoot string
+	Stdin       io.Reader
+	Stdout      io.Writer
+	Stderr      io.Writer
 	projects    []*Project // cached resolved projects
 }
 
@@ -65,15 +69,9 @@ func (r *CommandRunner) resolveProjects() []*Project {
 }
 
 func (r *CommandRunner) Run() error {
-	projects := r.resolveProjects()
-
 	// First, try to find the exact command (no normalization)
-	for _, project := range projects {
-		for _, source := range project.CommandSources {
-			if cmd := source.FindCommand(r.Command, r.Args); cmd != nil {
-				return r.ExecuteCommand(cmd)
-			}
-		}
+	if cmd := r.findExactCommand(r.Command, r.Args); cmd != nil {
+		return r.ExecuteCommand(cmd)
 	}
 
 	// Special handling for synthesized commands (only if no exact match found)
@@ -86,29 +84,66 @@ func (r *CommandRunner) Run() error {
 		return HandleTypecheckCommand(r)
 	}
 
-	// If no direct match found and the command might be an alias,
-	// try with the normalized version
-	normalizedCommand := NormalizeCommand(r.Command)
-	if normalizedCommand != r.Command {
-		for _, project := range projects {
-			for _, source := range project.CommandSources {
-				if cmd := source.FindCommand(normalizedCommand, r.Args); cmd != nil {
-					return r.ExecuteCommand(cmd)
-				}
-			}
+	// Only after every source has rejected the exact name, try aliases in their
+	// declared order. This lets a real command named "f", "run", etc. beat an
+	// alias supplied by a higher-priority source.
+	for _, variant := range GetCommandVariants(r.Command)[1:] {
+		if cmd := r.findExactCommand(variant, r.Args); cmd != nil {
+			return r.ExecuteCommand(cmd)
 		}
 	}
 
 	return fmt.Errorf("no command '%s' found in current directory or project root", r.Command)
 }
 
-func (r *CommandRunner) ExecuteCommand(cmd *exec.Cmd) error {
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+func (r *CommandRunner) findExactCommand(command string, args []string) *exec.Cmd {
+	for _, project := range r.resolveProjects() {
+		for _, source := range project.CommandSources {
+			if cmd := source.FindCommand(command, args); cmd != nil {
+				return cmd
+			}
+		}
+	}
+	return nil
+}
 
-	fmt.Fprintf(os.Stderr, "Running: %s\n", strings.Join(cmd.Args, " "))
+func (r *CommandRunner) findCommand(command string, args []string) *exec.Cmd {
+	for _, variant := range GetCommandVariants(command) {
+		if cmd := r.findExactCommand(variant, args); cmd != nil {
+			return cmd
+		}
+	}
+	return nil
+}
+
+func (r *CommandRunner) ExecuteCommand(cmd *exec.Cmd) error {
+	cmd.Stdin = r.stdinReader()
+	cmd.Stdout = r.stdoutWriter()
+	cmd.Stderr = r.stderrWriter()
+
+	fmt.Fprintf(cmd.Stderr, "Running: %s\n", strings.Join(cmd.Args, " "))
 	return cmd.Run()
+}
+
+func (r *CommandRunner) stdinReader() io.Reader {
+	if r.Stdin != nil {
+		return r.Stdin
+	}
+	return os.Stdin
+}
+
+func (r *CommandRunner) stdoutWriter() io.Writer {
+	if r.Stdout != nil {
+		return r.Stdout
+	}
+	return os.Stdout
+}
+
+func (r *CommandRunner) stderrWriter() io.Writer {
+	if r.Stderr != nil {
+		return r.Stderr
+	}
+	return os.Stderr
 }
 
 // ListCommands is the original method for backward compatibility
@@ -221,10 +256,15 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 	}
 
 	// Show synthesized commands if they're not already provided
-	synth := map[string]CommandInfo{
-		"check":     {Description: "Runs lint, typecheck, and test", Execution: "synthesized"},
-		"fix":       {Description: "Runs format and lint fix", Execution: "synthesized"},
-		"typecheck": {Description: "Runs type checking", Execution: "synthesized"},
+	synth := make(map[string]CommandInfo)
+	if r.canSynthesizeCheck() {
+		synth["check"] = CommandInfo{Description: "Runs lint, typecheck, and test", Execution: "synthesized"}
+	}
+	if r.canSynthesizeFix() {
+		synth["fix"] = CommandInfo{Description: "Runs format and lint fix", Execution: "synthesized"}
+	}
+	if r.hasTypecheckCapability() {
+		synth["typecheck"] = CommandInfo{Description: "Runs type checking", Execution: "synthesized"}
 	}
 
 	synthToShow := make(map[string]CommandInfo)
@@ -234,7 +274,7 @@ func (r *CommandRunner) ListCommandsWithOptions(showAll bool, verbose bool) {
 		}
 		// Show synthesized typecheck only when there's no explicit one AND project supports it
 		if cmd == "typecheck" {
-			if hasExplicitTypecheck || !r.hasTypecheckCapability() {
+			if hasExplicitTypecheck {
 				continue
 			}
 		}

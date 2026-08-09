@@ -55,7 +55,8 @@ type CommandSource interface {
 	// Returns a map of command name to CommandInfo
 	ListCommands() map[string]CommandInfo
 
-	// FindCommand looks for a specific command in this source
+	// FindCommand looks for an exact command name in this source. Alias expansion
+	// happens in CommandRunner after all sources reject the exact name.
 	// Returns nil if the command is not found
 	FindCommand(command string, args []string) *exec.Cmd
 
@@ -93,8 +94,11 @@ func ResolveProject(dir string) *Project {
 		}
 	}
 
-	// Check for language-specific project files
-	if FileExists(filepath.Join(dir, "package.json")) {
+	// Check for language-specific project files. Deno projects do not require a
+	// package.json, so detect their native configuration independently.
+	if FileExists(filepath.Join(dir, "deno.json")) || FileExists(filepath.Join(dir, "deno.jsonc")) {
+		sources = append(sources, NewDenoSource(dir))
+	} else if FileExists(filepath.Join(dir, "package.json")) {
 		if source := detectNodeProject(dir); source != nil {
 			sources = append(sources, source)
 		}

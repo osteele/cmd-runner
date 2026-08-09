@@ -1,11 +1,15 @@
 package internal
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // InteractiveSession manages the interactive mode state
@@ -14,6 +18,7 @@ type InteractiveSession struct {
 	terminal          *TerminalManager
 	lastCommand       string
 	lastExitCode      int
+	lastOutput        string
 	viewingOutput     bool
 	availableCommands map[string]CommandInfo
 	commandShortcuts  map[rune]string
@@ -48,12 +53,14 @@ func RunInteractive() error {
 				if errors.Is(err, ErrQuit) {
 					return nil
 				}
+				return err
 			}
 		} else {
 			if err := session.showMenu(); err != nil {
 				if errors.Is(err, ErrQuit) {
 					return nil
 				}
+				return err
 			}
 		}
 	}
@@ -84,9 +91,12 @@ func (s *InteractiveSession) gatherCommands() {
 	}
 
 	// Add synthesized commands
-	synth := map[string]CommandInfo{
-		"check": {Description: "Runs lint, typecheck, and test", Execution: "synthesized"},
-		"fix":   {Description: "Runs format and lint fix", Execution: "synthesized"},
+	synth := make(map[string]CommandInfo)
+	if s.runner.canSynthesizeCheck() {
+		synth["check"] = CommandInfo{Description: "Runs lint, typecheck, and test", Execution: "synthesized"}
+	}
+	if s.runner.canSynthesizeFix() {
+		synth["fix"] = CommandInfo{Description: "Runs format and lint fix", Execution: "synthesized"}
 	}
 
 	// Only add typecheck if project has capability
@@ -261,6 +271,13 @@ func (s *InteractiveSession) showOutputView() error {
 	fmt.Printf("Command: %s (exit code: %d)\n", s.lastCommand, s.lastExitCode)
 	fmt.Println("─────────────────────────────────────")
 	fmt.Println()
+	if s.lastOutput != "" {
+		fmt.Print(s.lastOutput)
+		if !strings.HasSuffix(s.lastOutput, "\n") {
+			fmt.Println()
+		}
+		fmt.Println("─────────────────────────────────────")
+	}
 	fmt.Println("Press '/' to return to menu, 'q' to quit")
 
 	// Read user input
@@ -352,11 +369,16 @@ func (s *InteractiveSession) runCommand(command string) error {
 		return err
 	}
 
+	output := &synchronizedBuffer{}
+	runner.Stdout = io.MultiWriter(os.Stdout, output)
+	runner.Stderr = io.MultiWriter(os.Stderr, output)
+
 	// Run the command
 	err := runner.Run()
 
 	// Store last command info
 	s.lastCommand = command
+	s.lastOutput = output.String()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			s.lastExitCode = exitErr.ExitCode()
@@ -383,6 +405,23 @@ func (s *InteractiveSession) runCommand(command string) error {
 	}
 
 	return nil
+}
+
+type synchronizedBuffer struct {
+	mu sync.Mutex
+	bytes.Buffer
+}
+
+func (b *synchronizedBuffer) Write(data []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.Buffer.Write(data)
+}
+
+func (b *synchronizedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.Buffer.String()
 }
 
 // showHelp displays help information

@@ -61,14 +61,11 @@ func (m *MiseSource) FindCommand(command string, args []string) *exec.Cmd {
 	// Use ListCommands to get parsed command list (eliminates false positives from string matching)
 	commands := m.ListCommands()
 
-	// Check each variant against the parsed command list
-	for _, variant := range GetCommandVariants(command) {
-		if _, exists := commands[variant]; exists {
-			cmdArgs := append([]string{"run", variant}, args...)
-			cmd := exec.Command("mise", cmdArgs...)
-			cmd.Dir = m.dir
-			return cmd
-		}
+	if _, exists := commands[command]; exists {
+		cmdArgs := append([]string{"run", command}, args...)
+		cmd := exec.Command("mise", cmdArgs...)
+		cmd.Dir = m.dir
+		return cmd
 	}
 	return nil
 }
@@ -126,14 +123,11 @@ func (j *JustSource) FindCommand(command string, args []string) *exec.Cmd {
 	// Use ListCommands to get parsed command list (eliminates false positives from string matching)
 	commands := j.ListCommands()
 
-	// Check each variant against the parsed command list
-	for _, variant := range GetCommandVariants(command) {
-		if _, exists := commands[variant]; exists {
-			cmdArgs := append([]string{variant}, args...)
-			cmd := exec.Command("just", cmdArgs...)
-			cmd.Dir = j.dir
-			return cmd
-		}
+	if _, exists := commands[command]; exists {
+		cmdArgs := append([]string{command}, args...)
+		cmd := exec.Command("just", cmdArgs...)
+		cmd.Dir = j.dir
+		return cmd
 	}
 	return nil
 }
@@ -196,14 +190,11 @@ func (m *MakeSource) FindCommand(command string, args []string) *exec.Cmd {
 	// Use ListCommands to get parsed command list (eliminates false positives and resource leaks)
 	commands := m.ListCommands()
 
-	// Check each variant against the parsed command list
-	for _, variant := range GetCommandVariants(command) {
-		if _, exists := commands[variant]; exists {
-			cmdArgs := append([]string{variant}, args...)
-			cmd := exec.Command("make", cmdArgs...)
-			cmd.Dir = m.dir
-			return cmd
-		}
+	if _, exists := commands[command]; exists {
+		cmdArgs := append([]string{command}, args...)
+		cmd := exec.Command("make", cmdArgs...)
+		cmd.Dir = m.dir
+		return cmd
 	}
 	return nil
 }

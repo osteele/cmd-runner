@@ -151,7 +151,6 @@ For more experimental and creative ideas, see [docs/ideas.txt](docs/ideas.txt).
 ### Test Coverage
 - ⬜ **Increase test coverage** - Add more unit tests, especially for command discovery and source detection
 - ⬜ **Integration test framework** - Create optional integration tests that run when tools are available (controlled by environment variable or build tag)
-- ⬜ **Enable skipped typecheck tests** - Replace skipped tests with runnable versions using mocks or temporary wrappers to regain coverage over typecheck orchestration code paths
 
 ### Lazy Loading
 - Load runners on-demand
@@ -183,7 +182,7 @@ These features from package-script-runner could be considered for future phases:
 ### Script Execution Features
 - **Environment variable injection** for scripts
 - **Working directory management** per script
-- **Script output capture** and formatting
+- **Script output formatting**
 - **Error handling** with helpful messages
 
 ### UI/UX Enhancements

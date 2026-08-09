@@ -47,10 +47,8 @@ func (c *CargoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"test":      "test",
 		"lint":      "clippy",
 		"format":    "fmt",
-		"fmt":       "fmt",
 		"clean":     "clean",
 		"typecheck": "check",
-		"tc":        "check",
 		"check":     "check",
 		"fix":       "fix",
 		"setup":     "fetch",
@@ -58,19 +56,17 @@ func (c *CargoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"publish":   "publish",
 	}
 
-	for _, variant := range GetCommandVariants(command) {
-		if cargoCmd, ok := cargoCommands[variant]; ok {
-			var cmdArgs []string
-			if cargoCmd == "install" {
-				// Modern cargo requires --path for installing from current directory
-				cmdArgs = append([]string{"install", "--path", "."}, args...)
-			} else {
-				cmdArgs = append([]string{cargoCmd}, args...)
-			}
-			cmd := exec.Command("cargo", cmdArgs...)
-			cmd.Dir = c.dir
-			return cmd
+	if cargoCmd, ok := cargoCommands[command]; ok {
+		var cmdArgs []string
+		if cargoCmd == "install" {
+			// Modern cargo requires --path for installing from current directory
+			cmdArgs = append([]string{"install", "--path", "."}, args...)
+		} else {
+			cmdArgs = append([]string{cargoCmd}, args...)
 		}
+		cmd := exec.Command("cargo", cmdArgs...)
+		cmd.Dir = c.dir
+		return cmd
 	}
 
 	// Try to handle custom binary targets
@@ -131,24 +127,20 @@ func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 		"run":       {"run", "."},
 		"test":      {"test", "./..."},
 		"format":    {"fmt", "./..."},
-		"fmt":       {"fmt", "./..."},
 		"clean":     {"clean"},
 		"setup":     {"mod", "download"},
 		"install":   {"install", "."},
 		"lint":      {"vet", "./..."},
 		"typecheck": {"build", "-o", os.DevNull, "./..."},
-		"tc":        {"build", "-o", os.DevNull, "./..."},
 	}
 
-	for _, variant := range GetCommandVariants(command) {
-		if goCmd, ok := goCommands[variant]; ok {
-			cmdArgs := make([]string, len(goCmd), len(goCmd)+len(args))
-			copy(cmdArgs, goCmd)
-			cmdArgs = append(cmdArgs, args...)
-			cmd := exec.Command("go", cmdArgs...)
-			cmd.Dir = g.dir
-			return cmd
-		}
+	if goCmd, ok := goCommands[command]; ok {
+		cmdArgs := make([]string, len(goCmd), len(goCmd)+len(args))
+		copy(cmdArgs, goCmd)
+		cmdArgs = append(cmdArgs, args...)
+		cmd := exec.Command("go", cmdArgs...)
+		cmd.Dir = g.dir
+		return cmd
 	}
 
 	return nil
@@ -206,20 +198,18 @@ func (g *GradleSource) FindCommand(command string, args []string) *exec.Cmd {
 		"install": "installDist",
 	}
 
-	for _, variant := range GetCommandVariants(command) {
-		if gradleCmd, ok := gradleCommands[variant]; ok {
-			var cmdArgs []string
-			// Handle commands with multiple parts (like "dependencies --write-locks")
-			if strings.Contains(gradleCmd, " ") {
-				parts := strings.Fields(gradleCmd)
-				cmdArgs = append(parts, args...)
-			} else {
-				cmdArgs = append([]string{gradleCmd}, args...)
-			}
-			cmd := exec.Command(gradleExec, cmdArgs...)
-			cmd.Dir = g.dir
-			return cmd
+	if gradleCmd, ok := gradleCommands[command]; ok {
+		var cmdArgs []string
+		// Handle commands with multiple parts (like "dependencies --write-locks")
+		if strings.Contains(gradleCmd, " ") {
+			parts := strings.Fields(gradleCmd)
+			cmdArgs = append(parts, args...)
+		} else {
+			cmdArgs = append([]string{gradleCmd}, args...)
 		}
+		cmd := exec.Command(gradleExec, cmdArgs...)
+		cmd.Dir = g.dir
+		return cmd
 	}
 
 	return nil
@@ -276,13 +266,11 @@ func (m *MavenSource) FindCommand(command string, args []string) *exec.Cmd {
 		"package": "package",
 	}
 
-	for _, variant := range GetCommandVariants(command) {
-		if mvnCmd, ok := mavenCommands[variant]; ok {
-			cmdArgs := append([]string{mvnCmd}, args...)
-			cmd := exec.Command(mvnExec, cmdArgs...)
-			cmd.Dir = m.dir
-			return cmd
-		}
+	if mvnCmd, ok := mavenCommands[command]; ok {
+		cmdArgs := append([]string{mvnCmd}, args...)
+		cmd := exec.Command(mvnExec, cmdArgs...)
+		cmd.Dir = m.dir
+		return cmd
 	}
 
 	return nil
