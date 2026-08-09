@@ -138,7 +138,7 @@ func ResolveProject(dir string) *Project {
 		}
 	}
 
-	if FileExists(filepath.Join(dir, "go.mod")) {
+	if FileExists(filepath.Join(dir, "go.mod")) || FileExists(filepath.Join(dir, "go.work")) {
 		if source := NewGoSource(dir); source != nil {
 			sources = append(sources, source)
 		}

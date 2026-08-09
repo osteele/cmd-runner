@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Route CLI argument handling and output through a testable entrypoint
 - Refresh cached command lists when runner configuration files change
 - Parse Python, Cargo, and Deno metadata structurally and discover Go command packages dynamically
+- Cache Go discovery by source content and support Go workspaces and Cargo `src/bin` targets
 
 ### Fixed
 

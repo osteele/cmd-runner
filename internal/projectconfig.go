@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -137,9 +138,53 @@ func dependencyName(specification string) string {
 }
 
 type cargoManifest struct {
+	Package struct {
+		Autobins *bool `toml:"autobins"`
+	} `toml:"package"`
 	Binaries []struct {
 		Name string `toml:"name"`
 	} `toml:"bin"`
+}
+
+func cargoBinaryNames(dir string) []string {
+	manifest, err := readCargoManifest(dir)
+	if err != nil {
+		return nil
+	}
+
+	names := make(map[string]bool)
+	for _, binary := range manifest.Binaries {
+		if binary.Name != "" {
+			names[binary.Name] = true
+		}
+	}
+	if manifest.Package.Autobins != nil && !*manifest.Package.Autobins {
+		return sortedKeys(names)
+	}
+
+	binDir := filepath.Join(dir, "src", "bin")
+	entries, _ := os.ReadDir(binDir)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			if FileExists(filepath.Join(binDir, entry.Name(), "main.rs")) {
+				names[entry.Name()] = true
+			}
+			continue
+		}
+		if filepath.Ext(entry.Name()) == ".rs" {
+			names[strings.TrimSuffix(entry.Name(), ".rs")] = true
+		}
+	}
+	return sortedKeys(names)
+}
+
+func sortedKeys(values map[string]bool) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func readCargoManifest(dir string) (*cargoManifest, error) {

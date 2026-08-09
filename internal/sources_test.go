@@ -178,6 +178,86 @@ func TestGoSourceNamesMultipleMainPackages(t *testing.T) {
 	}
 }
 
+func TestGoSourceCachesAndInvalidatesDiscovery(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, dir, "go.mod", "module example.com/fixture\n\ngo 1.25.0\n", 0o644)
+	writeFixture(t, dir, "main.go", "package main\nfunc main() {}\n", 0o644)
+
+	source := NewGoSource(dir).(*GoSource)
+	discoveryCalls := 0
+	source.discoverProject = func(dir string) goProjectDiscovery {
+		discoveryCalls++
+		return discoverGoProject(dir)
+	}
+	source.ListCommands()
+	source.ListCommands()
+	if discoveryCalls != 1 {
+		t.Fatalf("unchanged project discovered %d times, want 1", discoveryCalls)
+	}
+
+	writeFixture(t, dir, "new.go", "package main\nvar changed = true\n", 0o644)
+	source.ListCommands()
+	if discoveryCalls != 2 {
+		t.Fatalf("changed project discovered %d times, want 2", discoveryCalls)
+	}
+}
+
+func TestGoWorkspaceDiscoversNestedModules(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, dir, "go.work", "go 1.25.0\n\nuse (\n\t./services/api\n\t./tools\n)\n", 0o644)
+	writeFixture(t, dir, "services/api/go.mod", "module example.com/api\n\ngo 1.25.0\n", 0o644)
+	writeFixture(t, dir, "services/api/cmd/server/main.go", "package main\nfunc main() {}\n", 0o644)
+	writeFixture(t, dir, "tools/go.mod", "module example.com/tools\n\ngo 1.25.0\n", 0o644)
+	writeFixture(t, dir, "tools/cmd/generate/main.go", "package main\nfunc main() {}\n", 0o644)
+
+	project := ResolveProject(dir)
+	source := findSourceByName(project.CommandSources, "Go")
+	if source == nil {
+		t.Fatal("Go workspace was not detected")
+	}
+	commands := source.ListCommands()
+	for _, command := range []string{"run:server", "run:generate"} {
+		if _, exists := commands[command]; !exists {
+			t.Errorf("workspace commands do not contain %q: %v", command, commands)
+		}
+	}
+	if got := commands["build"].Execution; got != "go build ./services/api/... ./tools/..." {
+		t.Fatalf("build execution = %q", got)
+	}
+	if got := commands["setup"].Execution; got != "go work sync" {
+		t.Fatalf("setup execution = %q", got)
+	}
+}
+
+func TestCargoSourceDiscoversImplicitBinaries(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, dir, "Cargo.toml", "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\n", 0o644)
+	writeFixture(t, dir, "src/bin/server.rs", "fn main() {}\n", 0o644)
+	writeFixture(t, dir, "src/bin/worker/main.rs", "fn main() {}\n", 0o644)
+
+	source := NewCargoSource(dir)
+	for _, binaryName := range []string{"server", "worker"} {
+		commandName := "run:" + binaryName
+		if _, exists := source.ListCommands()[commandName]; !exists {
+			t.Errorf("Cargo commands do not contain %q", commandName)
+		}
+		command := source.FindCommand(commandName, nil)
+		if command == nil || !reflect.DeepEqual(command.Args, []string{"cargo", "run", "--bin", binaryName}) {
+			t.Errorf("%s command = %v", commandName, command)
+		}
+	}
+}
+
+func TestCargoSourceRespectsDisabledAutomaticBinaries(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, dir, "Cargo.toml", "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nautobins = false\n", 0o644)
+	writeFixture(t, dir, "src/bin/server.rs", "fn main() {}\n", 0o644)
+
+	if command := NewCargoSource(dir).FindCommand("run:server", nil); command != nil {
+		t.Fatalf("disabled automatic binary produced command %v", command.Args)
+	}
+}
+
 func TestStructuredMetadataIgnoresCommentsAndUnrelatedStrings(t *testing.T) {
 	dir := t.TempDir()
 	writeFixture(t, dir, "pyproject.toml", "# [tool.poetry]\n[project]\nname = \"mentions-mypy\"\ndependencies = [\"requests\"]\n", 0o644)
