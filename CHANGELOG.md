@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Report versions from Go build metadata or the release build version instead of a hardcoded constant
 - Route CLI argument handling and output through a testable entrypoint
 - Refresh cached command lists when runner configuration files change
+- Parse Python, Cargo, and Deno metadata structurally and discover Go command packages dynamically
 
 ### Fixed
 

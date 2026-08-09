@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -134,11 +133,8 @@ func (r *CommandRunner) hasTypecheckCapability() bool {
 
 		// Python projects with pyright or mypy
 		if FileExists(filepath.Join(dir, "pyproject.toml")) {
-			if data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml")); err == nil {
-				content := string(data)
-				if strings.Contains(content, "pyright") || strings.Contains(content, "mypy") {
-					return true
-				}
+			if pythonTypechecker(dir) != "" {
+				return true
 			}
 		}
 

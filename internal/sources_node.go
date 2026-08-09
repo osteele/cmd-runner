@@ -1,11 +1,8 @@
 package internal
 
 import (
-	"encoding/json"
-	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // Base Node.js source implementation
@@ -315,28 +312,15 @@ func (d *DenoSource) listTasks() map[string]string {
 			}
 		}
 	}
-	if data, err := os.ReadFile(filepath.Join(d.dir, "deno.json")); err == nil {
+	for _, filename := range []string{"deno.json", "deno.jsonc"} {
 		var config struct {
 			Tasks map[string]string `json:"tasks"`
 		}
-		if json.Unmarshal(data, &config) == nil {
+		if decodeJSONCFile(filepath.Join(d.dir, filename), &config) == nil {
 			for name, command := range config.Tasks {
 				tasks[name] = command
 			}
 			return tasks
-		}
-	}
-
-	listCmd := exec.Command("deno", "task", "--list")
-	listCmd.Dir = d.dir
-	output, err := listCmd.Output()
-	if err != nil {
-		return tasks
-	}
-	for _, line := range strings.Split(string(output), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) > 0 && fields[0] != "Available" {
-			tasks[fields[0]] = strings.TrimSpace(strings.TrimPrefix(line, fields[0]))
 		}
 	}
 	return tasks

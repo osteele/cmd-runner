@@ -2,10 +2,8 @@ package internal
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // HandleTypecheckCommand handles the special 'typecheck' command
@@ -45,11 +43,10 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 
 		// Python projects - try pyright or mypy
 		if FileExists(filepath.Join(dir, "pyproject.toml")) {
-			data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
-			if err != nil {
+			checker := pythonTypechecker(dir)
+			if checker == "" {
 				continue
 			}
-			content := string(data)
 
 			// Detect if we have a Python package manager
 			var packageManager string
@@ -61,7 +58,8 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 			}
 
 			var execCmd *exec.Cmd
-			if strings.Contains(content, "pyright") {
+			switch checker {
+			case "pyright":
 				switch packageManager {
 				case "uv":
 					cmdArgs := append([]string{"run", "pyright"}, r.Args...)
@@ -73,7 +71,7 @@ func (r *CommandRunner) synthesizeTypecheckCommand() error {
 					execCmd = exec.Command("pyright", r.Args...)
 				}
 				fmt.Fprintf(r.stderrWriter(), "Running typecheck using pyright...\n")
-			} else if strings.Contains(content, "mypy") {
+			case "mypy":
 				switch packageManager {
 				case "uv":
 					cmdArgs := append([]string{"run", "mypy", "."}, r.Args...)

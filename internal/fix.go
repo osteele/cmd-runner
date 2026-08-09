@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -120,21 +119,16 @@ func (r *CommandRunner) supportsLintFix() bool {
 
 		// Node.js projects with ESLint typically support --fix
 		if FileExists(filepath.Join(dir, "package.json")) {
-			if data, err := os.ReadFile(filepath.Join(dir, "package.json")); err == nil {
-				content := string(data)
-				if strings.Contains(content, "eslint") {
-					return true
-				}
+			if packageConfig, err := readNodePackage(dir); err == nil && packageConfig.hasDependency("eslint") {
+				return true
 			}
 		}
 
 		// Python projects with ruff support --fix
 		if FileExists(filepath.Join(dir, "pyproject.toml")) {
-			if data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml")); err == nil {
-				content := string(data)
-				if strings.Contains(content, "ruff") {
-					return true
-				}
+			if config, err := readPythonProjectConfig(dir); err == nil &&
+				(config.hasTool("ruff") || config.hasDependency("ruff")) {
+				return true
 			}
 		}
 

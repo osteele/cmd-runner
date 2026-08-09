@@ -1,10 +1,8 @@
 package internal
 
 import (
-	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // PoetrySource for Poetry projects
@@ -15,13 +13,8 @@ type PoetrySource struct {
 func NewPoetrySource(dir string) CommandSource {
 	// Verify it's actually a Poetry project
 	if !FileExists(filepath.Join(dir, "poetry.lock")) {
-		// Check if pyproject.toml contains [tool.poetry]
-		if FileExists(filepath.Join(dir, "pyproject.toml")) {
-			data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
-			if err != nil || !strings.Contains(string(data), "[tool.poetry]") {
-				return nil
-			}
-		} else {
+		config, err := readPythonProjectConfig(dir)
+		if err != nil || !config.hasTool("poetry") {
 			return nil
 		}
 	}
@@ -107,9 +100,8 @@ func NewUvSource(dir string) CommandSource {
 
 	if FileExists(filepath.Join(dir, "uv.lock")) || FileExists(filepath.Join(dir, ".uv")) {
 		hasUv = true
-	} else if FileExists(filepath.Join(dir, "pyproject.toml")) {
-		data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
-		if err == nil && strings.Contains(string(data), "[tool.uv]") {
+	} else if config, err := readPythonProjectConfig(dir); err == nil {
+		if config.hasTool("uv") {
 			hasUv = true
 		}
 	}
@@ -177,15 +169,14 @@ func (u *UvSource) FindCommand(command string, args []string) *exec.Cmd {
 }
 
 func pythonTypechecker(dir string) string {
-	data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml"))
+	config, err := readPythonProjectConfig(dir)
 	if err != nil {
 		return ""
 	}
-	content := string(data)
-	if strings.Contains(content, "pyright") {
+	if config.hasTool("pyright") || config.hasDependency("pyright") {
 		return "pyright"
 	}
-	if strings.Contains(content, "mypy") {
+	if config.hasTool("mypy") || config.hasDependency("mypy") {
 		return "mypy"
 	}
 	return ""

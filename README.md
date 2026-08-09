@@ -195,7 +195,7 @@ cmdr build --prod     # Runs build command with --prod flag
   - Makes the project's executable available system-wide
   - Node.js: `npm link`, `pnpm link --global`, `yarn link`, `bun link`
   - Python: `uv tool install .`, `pip install .`
-  - Go: `go install .`
+  - Go: `go install` for each discovered main package (including `cmd/*` layouts)
   - Rust: `cargo install --path .`
   - Java (Maven): `mvn install` (to local Maven repository)
   - Java (Gradle): `gradle installDist`

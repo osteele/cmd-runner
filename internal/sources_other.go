@@ -1,9 +1,12 @@
 package internal
 
 import (
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -27,7 +30,7 @@ func NewCargoSource(dir string) CommandSource {
 }
 
 func (c *CargoSource) ListCommands() map[string]CommandInfo {
-	return map[string]CommandInfo{
+	commands := map[string]CommandInfo{
 		"build":   {Description: "Build the project", Execution: "cargo build"},
 		"run":     {Description: "Run the project", Execution: "cargo run"},
 		"test":    {Description: "Run tests", Execution: "cargo test"},
@@ -38,6 +41,15 @@ func (c *CargoSource) ListCommands() map[string]CommandInfo {
 		"setup":   {Description: "Download dependencies", Execution: "cargo fetch"},
 		"install": {Description: "Install binary globally", Execution: "cargo install --path ."},
 	}
+	if manifest, err := readCargoManifest(c.dir); err == nil {
+		for _, binary := range manifest.Binaries {
+			commands["run:"+binary.Name] = CommandInfo{
+				Description: "Run the " + binary.Name + " binary",
+				Execution:   "cargo run --bin " + binary.Name,
+			}
+		}
+	}
+	return commands
 }
 
 func (c *CargoSource) FindCommand(command string, args []string) *exec.Cmd {
@@ -69,16 +81,15 @@ func (c *CargoSource) FindCommand(command string, args []string) *exec.Cmd {
 		return cmd
 	}
 
-	// Try to handle custom binary targets
-	cargoToml := filepath.Join(c.dir, "Cargo.toml")
-	if data, err := os.ReadFile(cargoToml); err == nil {
-		content := string(data)
-
-		// Check for binary targets (run:binary-name pattern)
-		if strings.HasPrefix(command, "run:") {
-			binName := strings.TrimPrefix(command, "run:")
-			if strings.Contains(content, `name = "`+binName+`"`) {
-				cmdArgs := append([]string{"run", "--bin", binName}, args...)
+	// Handle declared binary targets (run:binary-name pattern).
+	if strings.HasPrefix(command, "run:") {
+		binaryName := strings.TrimPrefix(command, "run:")
+		if manifest, err := readCargoManifest(c.dir); err == nil {
+			for _, binary := range manifest.Binaries {
+				if binary.Name != binaryName {
+					continue
+				}
+				cmdArgs := append([]string{"run", "--bin", binaryName}, args...)
 				cmd := exec.Command("cargo", cmdArgs...)
 				cmd.Dir = c.dir
 				return cmd
@@ -109,41 +120,155 @@ func NewGoSource(dir string) CommandSource {
 }
 
 func (g *GoSource) ListCommands() map[string]CommandInfo {
-	return map[string]CommandInfo{
-		"build":   {Description: "Build the project", Execution: "go build"},
-		"run":     {Description: "Run the project", Execution: "go run ."},
-		"test":    {Description: "Run tests", Execution: "go test ./..."},
-		"format":  {Description: "Format code", Execution: "go fmt ./..."},
-		"lint":    {Description: "Run linter", Execution: "go vet ./..."},
-		"clean":   {Description: "Clean build artifacts", Execution: "go clean"},
-		"setup":   {Description: "Download dependencies", Execution: "go mod download"},
-		"install": {Description: "Install binary globally", Execution: "go install ."},
+	commands := map[string]CommandInfo{
+		"build":  {Description: "Build the project", Execution: "go build ./..."},
+		"test":   {Description: "Run tests", Execution: "go test ./..."},
+		"format": {Description: "Format code", Execution: "go fmt ./..."},
+		"lint":   {Description: "Run linter", Execution: "go vet ./..."},
+		"clean":  {Description: "Clean build artifacts", Execution: "go clean"},
+		"setup":  {Description: "Download dependencies", Execution: "go mod download"},
 	}
+	mainPackages := g.mainPackages()
+	if len(mainPackages) > 0 {
+		commands["install"] = CommandInfo{
+			Description: "Install binaries globally",
+			Execution:   "go install " + strings.Join(mainPackages, " "),
+		}
+	}
+	if len(mainPackages) == 1 {
+		commands["run"] = CommandInfo{
+			Description: "Run the project",
+			Execution:   "go run " + mainPackages[0],
+		}
+	} else if len(mainPackages) > 1 {
+		for commandName, target := range goRunTargets(mainPackages) {
+			commands["run:"+commandName] = CommandInfo{
+				Description: "Run " + target,
+				Execution:   "go run " + target,
+			}
+		}
+	}
+	return commands
 }
 
 func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 	goCommands := map[string][]string{
-		"build":     {"build"},
-		"run":       {"run", "."},
+		"build":     {"build", "./..."},
 		"test":      {"test", "./..."},
 		"format":    {"fmt", "./..."},
 		"clean":     {"clean"},
 		"setup":     {"mod", "download"},
-		"install":   {"install", "."},
 		"lint":      {"vet", "./..."},
 		"typecheck": {"build", "-o", os.DevNull, "./..."},
 	}
 
 	if goCmd, ok := goCommands[command]; ok {
-		cmdArgs := make([]string, len(goCmd), len(goCmd)+len(args))
-		copy(cmdArgs, goCmd)
-		cmdArgs = append(cmdArgs, args...)
-		cmd := exec.Command("go", cmdArgs...)
-		cmd.Dir = g.dir
-		return cmd
+		return g.command(append(goCmd, args...))
+	}
+
+	mainPackages := g.mainPackages()
+	if command == "run" && len(mainPackages) == 1 {
+		return g.command(append([]string{"run", mainPackages[0]}, args...))
+	}
+	if command == "install" && len(mainPackages) > 0 {
+		cmdArgs := append([]string{"install"}, mainPackages...)
+		return g.command(append(cmdArgs, args...))
+	}
+	if strings.HasPrefix(command, "run:") {
+		if target, exists := goRunTargets(mainPackages)[strings.TrimPrefix(command, "run:")]; exists {
+			return g.command(append([]string{"run", target}, args...))
+		}
 	}
 
 	return nil
+}
+
+func (g *GoSource) command(args []string) *exec.Cmd {
+	cmd := exec.Command("go", args...)
+	cmd.Dir = g.dir
+	return cmd
+}
+
+func (g *GoSource) mainPackages() []string {
+	listCommand := exec.Command("go", "list", "-f", `{{if eq .Name "main"}}{{.Dir}}{{end}}`, "./...")
+	listCommand.Dir = g.dir
+	output, err := listCommand.Output()
+	if err != nil {
+		return discoverMainPackagesFromFiles(g.dir)
+	}
+
+	packages := make([]string, 0)
+	for _, directory := range strings.Split(string(output), "\n") {
+		directory = strings.TrimSpace(directory)
+		if directory == "" {
+			continue
+		}
+		relativeDirectory, err := filepath.Rel(g.dir, directory)
+		if err != nil || relativeDirectory == ".." || strings.HasPrefix(relativeDirectory, ".."+string(filepath.Separator)) {
+			continue
+		}
+		if relativeDirectory == "." {
+			packages = append(packages, ".")
+		} else {
+			packages = append(packages, "./"+filepath.ToSlash(relativeDirectory))
+		}
+	}
+	sort.Strings(packages)
+	return packages
+}
+
+func goRunTargets(mainPackages []string) map[string]string {
+	baseNameCounts := make(map[string]int)
+	for _, target := range mainPackages {
+		baseNameCounts[filepath.Base(target)]++
+	}
+	targets := make(map[string]string, len(mainPackages))
+	for _, target := range mainPackages {
+		name := filepath.Base(target)
+		if baseNameCounts[name] > 1 {
+			name = strings.TrimPrefix(target, "./")
+		}
+		targets[name] = target
+	}
+	return targets
+}
+
+func discoverMainPackagesFromFiles(dir string) []string {
+	candidates := []string{dir}
+	commandDirectories, _ := filepath.Glob(filepath.Join(dir, "cmd", "*"))
+	candidates = append(candidates, commandDirectories...)
+
+	packages := make([]string, 0)
+	for _, candidate := range candidates {
+		if !directoryContainsMainPackage(candidate) {
+			continue
+		}
+		relativeDirectory, err := filepath.Rel(dir, candidate)
+		if err != nil {
+			continue
+		}
+		if relativeDirectory == "." {
+			packages = append(packages, ".")
+		} else {
+			packages = append(packages, "./"+filepath.ToSlash(relativeDirectory))
+		}
+	}
+	sort.Strings(packages)
+	return packages
+}
+
+func directoryContainsMainPackage(dir string) bool {
+	files, _ := filepath.Glob(filepath.Join(dir, "*.go"))
+	for _, filename := range files {
+		if strings.HasSuffix(filename, "_test.go") {
+			continue
+		}
+		parsedFile, err := parser.ParseFile(token.NewFileSet(), filename, nil, parser.PackageClauseOnly)
+		if err == nil && parsedFile.Name.Name == "main" {
+			return true
+		}
+	}
+	return false
 }
 
 // GradleSource for Gradle projects

@@ -2,12 +2,10 @@ package internal
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 )
 
@@ -217,8 +215,6 @@ func detectNodeProject(dir string) CommandSource {
 
 // detectPythonProject determines which Python package manager to use
 func detectPythonProject(dir string) CommandSource {
-	pyprojectPath := filepath.Join(dir, "pyproject.toml")
-
 	// Check for Poetry
 	if FileExists(filepath.Join(dir, "poetry.lock")) {
 		return NewPoetrySource(dir)
@@ -229,15 +225,12 @@ func detectPythonProject(dir string) CommandSource {
 		return NewUvSource(dir)
 	}
 
-	// Read pyproject.toml to determine the tool
-	if data, err := os.ReadFile(pyprojectPath); err == nil {
-		content := string(data)
-
-		if strings.Contains(content, "[tool.poetry]") {
+	// Parse pyproject.toml to determine the configured tool.
+	if config, err := readPythonProjectConfig(dir); err == nil {
+		if config.hasTool("poetry") {
 			return NewPoetrySource(dir)
 		}
-
-		if strings.Contains(content, "[tool.uv]") {
+		if config.hasTool("uv") {
 			return NewUvSource(dir)
 		}
 	}
@@ -297,19 +290,9 @@ func nodePackageManagerName(project *Project) string {
 
 // Helper function to parse package.json scripts
 func parsePackageJsonScripts(dir string) (map[string]string, error) {
-	packageJSON := filepath.Join(dir, "package.json")
-	data, err := os.ReadFile(packageJSON)
+	packageConfig, err := readNodePackage(dir)
 	if err != nil {
 		return nil, err
 	}
-
-	var pkg struct {
-		Scripts map[string]string `json:"scripts"`
-	}
-
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return nil, err
-	}
-
-	return pkg.Scripts, nil
+	return packageConfig.Scripts, nil
 }
