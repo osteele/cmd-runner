@@ -10,10 +10,8 @@ import (
 	"github.com/osteele/cmd-runner/internal"
 )
 
-const version = "0.2.0"
-
 func showHelp() {
-	fmt.Fprintf(os.Stderr, "cmd-runner %s - Smart command runner for multiple build systems\n\n", version)
+	fmt.Fprintf(os.Stderr, "cmd-runner %s - Smart command runner for multiple build systems\n\n", currentVersion())
 	fmt.Fprintf(os.Stderr, "Usage: cmdr [OPTIONS] [command] [args...]\n")
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "When run without arguments, shows available commands (same as --list).\n")
@@ -50,7 +48,7 @@ func showHelp() {
 }
 
 func showVersion() {
-	fmt.Printf("cmdr version %s\n", version)
+	fmt.Printf("cmdr version %s\n", currentVersion())
 }
 
 func main() {

@@ -69,7 +69,7 @@ mise run clean
 mise run check
 
 # Build for all platforms
-mise run release
+VERSION=0.3.0 mise run release
 ```
 
 ### Quick Reference
@@ -191,7 +191,7 @@ To add a new command alias, update the `commandGroups` slice in `cmdrunner.go`. 
 
 ## Release Process
 
-1. Update version in code if applicable
+1. Choose the release version and pass it as `VERSION` to `mise run release`
 2. Run full test suite
 3. Build binaries for all platforms
 4. Create git tag: `git tag -a v1.0.0 -m "Release v1.0.0"`

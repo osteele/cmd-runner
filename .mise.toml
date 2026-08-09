@@ -69,9 +69,16 @@ mise run test
 [tasks.release]
 description = "Build for all platforms"
 run = """
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o cmdr-linux-amd64 ./cmd/cmdr
-GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o cmdr-darwin-amd64 ./cmd/cmdr
-GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o cmdr-darwin-arm64 ./cmd/cmdr
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o cmdr-windows-amd64.exe ./cmd/cmdr
+if [[ -z "${VERSION:-}" ]]; then
+    echo "VERSION is required (for example: VERSION=0.3.0 mise run release)" >&2
+    exit 1
+fi
+
+VERSION="${VERSION#v}"
+LDFLAGS="-s -w -X main.version=$VERSION"
+GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -o cmdr-linux-amd64 ./cmd/cmdr
+GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o cmdr-darwin-amd64 ./cmd/cmdr
+GOOS=darwin GOARCH=arm64 go build -ldflags="$LDFLAGS" -o cmdr-darwin-arm64 ./cmd/cmdr
+GOOS=windows GOARCH=amd64 go build -ldflags="$LDFLAGS" -o cmdr-windows-amd64.exe ./cmd/cmdr
 echo "Binaries built for all platforms"
 """

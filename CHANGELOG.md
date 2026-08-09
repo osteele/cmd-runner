@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Standardize development and CI on Go 1.25 and upgrade Go dependencies to their latest releases
+- Report versions from Go build metadata or the release build version instead of a hardcoded constant
 
 ### Fixed
 
