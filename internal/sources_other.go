@@ -153,6 +153,14 @@ func (g *GoSource) ListCommands() map[string]CommandInfo {
 
 func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 	discovery := g.discovery()
+	if command == "format" && len(args) > 0 {
+		if allGoFiles(args) {
+			cmd := exec.Command("gofmt", append([]string{"-w"}, args...)...)
+			cmd.Dir = g.dir
+			return cmd
+		}
+		return g.command(append([]string{"fmt"}, args...))
+	}
 	goCommands := map[string][]string{
 		"build":     append([]string{"build"}, discovery.packagePatterns...),
 		"test":      append([]string{"test"}, discovery.packagePatterns...),
@@ -186,6 +194,15 @@ func (g *GoSource) FindCommand(command string, args []string) *exec.Cmd {
 	}
 
 	return nil
+}
+
+func allGoFiles(args []string) bool {
+	for _, arg := range args {
+		if filepath.Ext(arg) != ".go" {
+			return false
+		}
+	}
+	return true
 }
 
 func (g *GoSource) command(args []string) *exec.Cmd {

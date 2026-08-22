@@ -12,7 +12,7 @@ import (
 func TestCommandSourcesBuildExpectedCommands(t *testing.T) {
 	fakeBin := t.TempDir()
 	writeFixture(t, fakeBin, "mise", "#!/bin/sh\nprintf 'test  Run tests\\n'\n", 0o755)
-	writeFixture(t, fakeBin, "just", "#!/bin/sh\nprintf 'Available recipes:\\ntest # Run tests\\n'\n", 0o755)
+	writeFixture(t, fakeBin, "just", "#!/bin/sh\nprintf 'Available recipes:\\nformat *args # Format code\\ntest # Run tests\\n'\n", 0o755)
 	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	tests := []struct {
@@ -36,6 +36,14 @@ func TestCommandSourcesBuildExpectedCommands(t *testing.T) {
 			new:      NewJustSource,
 			command:  "test",
 			wantArgs: []string{"just", "test"},
+		},
+		{
+			name:     "just variadic recipe",
+			files:    map[string]string{"justfile": "format *args:\n\tgo fmt {{args}}\n"},
+			new:      NewJustSource,
+			command:  "format",
+			args:     []string{"main.go", "README.md"},
+			wantArgs: []string{"just", "format", "main.go", "README.md"},
 		},
 		{
 			name:     "make",
@@ -158,6 +166,43 @@ func TestGoSourceDiscoversCommandLayout(t *testing.T) {
 	}
 	if got := source.ListCommands()["run"].Execution; got != "go run ./cmd/tool" {
 		t.Fatalf("listed run command = %q", got)
+	}
+}
+
+func TestGoSourceFormatsExplicitTargets(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, dir, "go.mod", "module example.com/fixture\n\ngo 1.25.0\n", 0o644)
+	writeFixture(t, dir, "main.go", "package fixture\n", 0o644)
+	writeFixture(t, dir, "internal/one/one.go", "package one\n", 0o644)
+	writeFixture(t, dir, "internal/two/two.go", "package two\n", 0o644)
+
+	source := NewGoSource(dir)
+	tests := []struct {
+		name     string
+		args     []string
+		wantArgs []string
+	}{
+		{name: "default packages", wantArgs: []string{"go", "fmt", "./..."}},
+		{name: "one file", args: []string{"main.go"}, wantArgs: []string{"gofmt", "-w", "main.go"}},
+		{
+			name:     "files from multiple directories",
+			args:     []string{"internal/one/one.go", "internal/two/two.go"},
+			wantArgs: []string{"gofmt", "-w", "internal/one/one.go", "internal/two/two.go"},
+		},
+		{
+			name:     "explicit package patterns",
+			args:     []string{"./internal/one", "./internal/two"},
+			wantArgs: []string{"go", "fmt", "./internal/one", "./internal/two"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			command := source.FindCommand("format", test.args)
+			if command == nil || !reflect.DeepEqual(command.Args, test.wantArgs) {
+				t.Fatalf("format command = %v, want %v", command, test.wantArgs)
+			}
+		})
 	}
 }
 

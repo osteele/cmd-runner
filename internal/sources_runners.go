@@ -99,15 +99,16 @@ func (j *JustSource) ListCommands() map[string]CommandInfo {
 			for _, line := range lines {
 				line = strings.TrimSpace(line)
 				if line != "" && !strings.HasPrefix(line, "Available") {
-					// just output format: "command   # description"
+					// just output format: "command [parameters]   # description"
 					parts := strings.SplitN(line, "#", 2)
 					if len(parts) > 0 {
-						cmd := strings.TrimSpace(parts[0])
+						signature := strings.Fields(parts[0])
 						desc := ""
 						if len(parts) > 1 {
 							desc = strings.TrimSpace(parts[1])
 						}
-						if cmd != "" {
+						if len(signature) > 0 {
+							cmd := signature[0]
 							commands[cmd] = CommandInfo{
 								Description: desc,
 								Execution:   "just " + cmd,
