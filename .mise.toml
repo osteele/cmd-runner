@@ -3,6 +3,11 @@ go = "1.25"
 golangci-lint = "2.6.2"
 lefthook = "1"
 
+[env]
+PATH = { value = "{{ tools.go.path }}/bin:{{ env.PATH }}", tools = true }
+GOCACHE = { value = "{{xdg_cache_home}}/mise/go/{{ config_root | basename }}-{{ config_root | hash(len=8) }}/go-{{ tools.go.version }}", tools = true }
+GOLANGCI_LINT_CACHE = { value = "{{xdg_cache_home}}/mise/go/{{ config_root | basename }}-{{ config_root | hash(len=8) }}/golangci-lint-{{ tools['golangci-lint'].version }}-go-{{ tools.go.version }}", tools = true }
+
 [tasks.format]
 description = "Format Go code"
 run = "go fmt ./..."
